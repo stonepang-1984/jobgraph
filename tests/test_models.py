@@ -1,9 +1,14 @@
 """Tests for data models."""
 
-import pytest
 from src.jobgraph.models import (
-    Company, Job, Review, Pitfall, UserProfile,
-    CompanySize, RiskLevel, JobType, FundingStage
+    Company,
+    CompanySize,
+    Job,
+    JobType,
+    Pitfall,
+    Review,
+    RiskLevel,
+    UserProfile,
 )
 
 
@@ -19,7 +24,7 @@ class TestCompany:
             size=CompanySize.LARGE,
             headquarters="北京",
         )
-        
+
         assert company.id == "test_001"
         assert company.name == "测试公司"
         assert company.industry == "互联网"
@@ -29,7 +34,7 @@ class TestCompany:
     def test_company_defaults(self):
         """Test company default values."""
         company = Company(id="test_001", name="测试公司")
-        
+
         assert company.risk_level == RiskLevel.MEDIUM
         assert company.risk_score == 0.5
         assert company.tags == []
@@ -61,7 +66,7 @@ class TestJob:
             salary_min=25000,
             salary_max=40000,
         )
-        
+
         assert job.id == "job_001"
         assert job.title == "后端工程师"
         assert job.salary_min == 25000
@@ -75,7 +80,7 @@ class TestJob:
             company_id="comp_001",
             company_name="公司",
         )
-        
+
         assert job.job_type == JobType.FULL_TIME
         assert job.salary_months == 12
         assert job.is_remote is False
@@ -101,7 +106,7 @@ class TestReview:
             pros="优点",
             cons="缺点",
         )
-        
+
         assert review.id == "rev_001"
         assert review.overall_rating == 4.0
         assert review.pros == "优点"
@@ -110,7 +115,7 @@ class TestReview:
     def test_review_defaults(self):
         """Test review default values."""
         review = Review(id="rev_001", company_id="comp_001")
-        
+
         assert review.overall_rating == 0.0
         assert review.is_current_employee is True
         assert review.pitfall_tags == []
@@ -128,7 +133,7 @@ class TestPitfall:
             severity=4,
             description="强制996",
         )
-        
+
         assert pitfall.id == "pit_001"
         assert pitfall.pitfall_type == "996"
         assert pitfall.severity == 4
@@ -141,7 +146,7 @@ class TestPitfall:
             company_id="comp_001",
             pitfall_type="PUA",
         )
-        
+
         assert pitfall.severity == 3
         assert pitfall.report_count == 1
         assert pitfall.confirmed_count == 0
@@ -160,7 +165,7 @@ class TestUserProfile:
             experience_years=3,
             skills=["Python", "Java"],
         )
-        
+
         assert user.id == "user_001"
         assert user.name == "张三"
         assert user.experience_years == 3
@@ -169,7 +174,7 @@ class TestUserProfile:
     def test_user_defaults(self):
         """Test user default values."""
         user = UserProfile(id="user_001")
-        
+
         assert user.experience_years == 0
         assert user.skills == []
         assert user.prefer_remote is False

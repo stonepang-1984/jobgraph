@@ -8,10 +8,9 @@
 """
 
 import json
-import hashlib
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import Optional
+
 from loguru import logger
 
 from src.graph.neo4j_client import neo4j_client
@@ -41,7 +40,7 @@ class DataUpdateManager:
         """保存更新日志"""
         self.log_file.write_text(json.dumps(self.log_data, indent=2, ensure_ascii=False))
 
-    def get_last_update(self, data_type: str = "all") -> Optional[str]:
+    def get_last_update(self, data_type: str = "all") -> str | None:
         """获取最后更新时间"""
         if data_type == "all":
             return self.log_data.get("last_update")
@@ -72,12 +71,14 @@ class DataUpdateManager:
         self.log_data["data_versions"][data_type]["count"] = count
 
         # 添加更新记录
-        self.log_data["updates"].append({
-            "type": data_type,
-            "timestamp": now,
-            "count": count,
-            "details": details or {},
-        })
+        self.log_data["updates"].append(
+            {
+                "type": data_type,
+                "timestamp": now,
+                "count": count,
+                "details": details or {},
+            }
+        )
 
         # 只保留最近 100 条记录
         self.log_data["updates"] = self.log_data["updates"][-100:]
@@ -108,17 +109,13 @@ class IncrementalUpdater:
 
     def update_companies(self, companies: list[dict]) -> dict:
         """增量更新公司数据"""
-        from src.jobgraph.models import Company, CompanySize, RiskLevel
 
         stats = {"created": 0, "updated": 0, "unchanged": 0}
 
         for data in companies:
             try:
                 # 检查是否存在
-                existing = neo4j_client.execute_query(
-                    "MATCH (c:Company {id: $id}) RETURN c",
-                    {"id": data["id"]}
-                )
+                existing = neo4j_client.execute_query("MATCH (c:Company {id: $id}) RETURN c", {"id": data["id"]})
 
                 if existing:
                     # 检查是否有变化
@@ -140,15 +137,12 @@ class IncrementalUpdater:
 
     def update_jobs(self, jobs: list[dict]) -> dict:
         """增量更新岗位数据"""
-        from src.jobgraph.models import Job, JobType
 
         stats = {"created": 0, "updated": 0, "unchanged": 0, "deactivated": 0}
 
         # 获取现有岗位
         existing_jobs = {
-            r["id"]: r for r in neo4j_client.execute_query(
-                "MATCH (j:Job) RETURN j.id AS id, j.is_active AS is_active"
-            )
+            r["id"]: r for r in neo4j_client.execute_query("MATCH (j:Job) RETURN j.id AS id, j.is_active AS is_active")
         }
 
         new_job_ids = {j["id"] for j in jobs}
@@ -229,14 +223,24 @@ class IncrementalUpdater:
             tags: $tags, created_at: datetime(), updated_at: datetime()
         })
         """
-        neo4j_client.execute_write(cypher, {
-            "id": company.id, "name": company.name, "name_en": company.name_en,
-            "industry": company.industry, "size": company.size.value if company.size else None,
-            "founded": company.founded, "headquarters": company.headquarters,
-            "employees": company.employees, "avg_salary": company.avg_salary,
-            "avg_rating": company.avg_rating, "risk_level": company.risk_level.value,
-            "risk_score": company.risk_score, "tags": company.tags,
-        })
+        neo4j_client.execute_write(
+            cypher,
+            {
+                "id": company.id,
+                "name": company.name,
+                "name_en": company.name_en,
+                "industry": company.industry,
+                "size": company.size.value if company.size else None,
+                "founded": company.founded,
+                "headquarters": company.headquarters,
+                "employees": company.employees,
+                "avg_salary": company.avg_salary,
+                "avg_rating": company.avg_rating,
+                "risk_level": company.risk_level.value,
+                "risk_score": company.risk_score,
+                "tags": company.tags,
+            },
+        )
 
     def _update_company(self, data: dict) -> None:
         """更新公司"""

@@ -1,16 +1,16 @@
 """People graph manager - CRUD operations for person entities."""
 
-from typing import Optional
+
 from loguru import logger
 
 from src.graph.neo4j_client import neo4j_client
 from src.graph.people.models import (
-    Person,
     Company,
+    Education,
+    Person,
+    PersonRelation,
     University,
     WorkExperience,
-    Education,
-    PersonRelation,
 )
 
 
@@ -60,7 +60,7 @@ class PeopleGraphManager:
         logger.info(f"Created/updated person: {person.name}")
         return result
 
-    def get_person(self, person_id: str) -> Optional[dict]:
+    def get_person(self, person_id: str) -> dict | None:
         """Get person by ID."""
         cypher = """
         MATCH (p:Person {id: $id})
@@ -92,9 +92,7 @@ class PeopleGraphManager:
         ORDER BY p.name
         LIMIT $limit
         """
-        return neo4j_client.execute_query(
-            cypher, {"query": query, "limit": limit}
-        )
+        return neo4j_client.execute_query(cypher, {"query": query, "limit": limit})
 
     # ============================================================
     # Company CRUD
@@ -307,9 +305,7 @@ class PeopleGraphManager:
     # Graph Queries
     # ============================================================
 
-    def get_person_network(
-        self, person_id: str, depth: int = 2
-    ) -> dict:
+    def get_person_network(self, person_id: str, depth: int = 2) -> dict:
         """Get person's network (colleagues, classmates, etc.)."""
         cypher = """
         MATCH path = (p:Person {id: $person_id})-[*1..{depth}]-(connected)
@@ -333,20 +329,24 @@ class PeopleGraphManager:
         edges = []
 
         # Add center person
-        nodes.append({
-            "id": person_id,
-            "type": "Person",
-            "name": self._get_person_name(person_id),
-            "is_center": True,
-        })
+        nodes.append(
+            {
+                "id": person_id,
+                "type": "Person",
+                "name": self._get_person_name(person_id),
+                "is_center": True,
+            }
+        )
 
         for r in results:
-            nodes.append({
-                "id": r["id"],
-                "type": r["type"],
-                "name": r["name"],
-                "distance": r["distance"],
-            })
+            nodes.append(
+                {
+                    "id": r["id"],
+                    "type": r["type"],
+                    "name": r["name"],
+                    "distance": r["distance"],
+                }
+            )
 
         return {"nodes": nodes, "edges": edges}
 
@@ -390,9 +390,7 @@ class PeopleGraphManager:
         timeline.sort(key=lambda x: x.get("start_date", ""), reverse=True)
         return timeline
 
-    def find_connection(
-        self, person1_id: str, person2_id: str, max_depth: int = 4
-    ) -> list[dict]:
+    def find_connection(self, person1_id: str, person2_id: str, max_depth: int = 4) -> list[dict]:
         """Find connection path between two persons."""
         cypher = """
         MATCH path = shortestPath(
@@ -417,9 +415,7 @@ class PeopleGraphManager:
             {"person1_id": person1_id, "person2_id": person2_id},
         )
 
-    def get_colleagues(
-        self, person_id: str, company_id: Optional[str] = None
-    ) -> list[dict]:
+    def get_colleagues(self, person_id: str, company_id: str | None = None) -> list[dict]:
         """Get colleagues (people who worked at same company)."""
         if company_id:
             cypher = """
@@ -440,13 +436,9 @@ class PeopleGraphManager:
                    c.name AS company
             """
 
-        return neo4j_client.execute_query(
-            cypher, {"person_id": person_id, "company_id": company_id}
-        )
+        return neo4j_client.execute_query(cypher, {"person_id": person_id, "company_id": company_id})
 
-    def get_classmates(
-        self, person_id: str, university_id: Optional[str] = None
-    ) -> list[dict]:
+    def get_classmates(self, person_id: str, university_id: str | None = None) -> list[dict]:
         """Get classmates (people who studied at same university)."""
         if university_id:
             cypher = """
@@ -467,9 +459,7 @@ class PeopleGraphManager:
                    u.name AS university
             """
 
-        return neo4j_client.execute_query(
-            cypher, {"person_id": person_id, "university_id": university_id}
-        )
+        return neo4j_client.execute_query(cypher, {"person_id": person_id, "university_id": university_id})
 
     # ============================================================
     # Statistics

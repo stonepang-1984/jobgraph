@@ -1,9 +1,6 @@
 """Vector similarity retrieval."""
 
 from dataclasses import dataclass, field
-from typing import Optional
-
-from loguru import logger
 
 from config.settings import settings
 from src.embeddings.text_embedder import text_embedder
@@ -19,8 +16,8 @@ class RetrievalResult:
     modality: str  # text, image, table, audio, video, entity, community
     score: float
     metadata: dict = field(default_factory=dict)
-    source: Optional[str] = None
-    page: Optional[int] = None
+    source: str | None = None
+    page: int | None = None
 
 
 class VectorRetriever:
@@ -57,9 +54,7 @@ class VectorRetriever:
         results.sort(key=lambda x: x.score, reverse=True)
         return results[:top_k]
 
-    def _search_text_chunks(
-        self, embedding: list[float], top_k: int
-    ) -> list[RetrievalResult]:
+    def _search_text_chunks(self, embedding: list[float], top_k: int) -> list[RetrievalResult]:
         """Search text chunks by vector similarity."""
         cypher = """
         CALL db.index.vector.queryNodes('text_chunk_embedding', $top_k, $embedding)
@@ -73,9 +68,7 @@ class VectorRetriever:
         ORDER BY score DESC
         """
 
-        results = neo4j_client.execute_query(
-            cypher, {"top_k": top_k, "embedding": embedding}
-        )
+        results = neo4j_client.execute_query(cypher, {"top_k": top_k, "embedding": embedding})
 
         return [
             RetrievalResult(
@@ -89,9 +82,7 @@ class VectorRetriever:
             for r in results
         ]
 
-    def _search_entities(
-        self, embedding: list[float], top_k: int
-    ) -> list[RetrievalResult]:
+    def _search_entities(self, embedding: list[float], top_k: int) -> list[RetrievalResult]:
         """Search entities by vector similarity."""
         cypher = """
         CALL db.index.vector.queryNodes('entity_embedding', $top_k, $embedding)
@@ -103,9 +94,7 @@ class VectorRetriever:
         ORDER BY score DESC
         """
 
-        results = neo4j_client.execute_query(
-            cypher, {"top_k": top_k, "embedding": embedding}
-        )
+        results = neo4j_client.execute_query(cypher, {"top_k": top_k, "embedding": embedding})
 
         return [
             RetrievalResult(
@@ -118,9 +107,7 @@ class VectorRetriever:
             for r in results
         ]
 
-    def _search_communities(
-        self, embedding: list[float], top_k: int
-    ) -> list[RetrievalResult]:
+    def _search_communities(self, embedding: list[float], top_k: int) -> list[RetrievalResult]:
         """Search communities by vector similarity."""
         cypher = """
         CALL db.index.vector.queryNodes('community_embedding', $top_k, $embedding)
@@ -132,9 +119,7 @@ class VectorRetriever:
         ORDER BY score DESC
         """
 
-        results = neo4j_client.execute_query(
-            cypher, {"top_k": top_k, "embedding": embedding}
-        )
+        results = neo4j_client.execute_query(cypher, {"top_k": top_k, "embedding": embedding})
 
         return [
             RetrievalResult(

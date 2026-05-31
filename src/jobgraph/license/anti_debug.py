@@ -9,11 +9,10 @@
 
 import os
 import sys
-import ctypes
-import platform
 import threading
 import time
-from typing import Callable
+from collections.abc import Callable
+
 from loguru import logger
 
 
@@ -92,16 +91,27 @@ class AntiDebug:
     def _check_debugger_processes(self) -> bool:
         """检测调试器进程"""
         debugger_processes = [
-            'gdb', 'lldb', 'windbg', 'x64dbg', 'ollydbg',
-            'ida', 'ida64', 'idaq', 'idaq64',
-            'radare2', 'r2', 'ghidra',
-            'pycharm', 'debugpy',
+            "gdb",
+            "lldb",
+            "windbg",
+            "x64dbg",
+            "ollydbg",
+            "ida",
+            "ida64",
+            "idaq",
+            "idaq64",
+            "radare2",
+            "r2",
+            "ghidra",
+            "pycharm",
+            "debugpy",
         ]
 
         try:
             import psutil
-            for proc in psutil.process_iter(['name']):
-                proc_name = proc.info['name'].lower()
+
+            for proc in psutil.process_iter(["name"]):
+                proc_name = proc.info["name"].lower()
                 if any(dbg in proc_name for dbg in debugger_processes):
                     logger.warning(f"Debugger process detected: {proc_name}")
                     return True
@@ -113,11 +123,11 @@ class AntiDebug:
     def _check_debug_env(self) -> bool:
         """检测调试环境变量"""
         debug_vars = [
-            'PYDEVD_USE_FRAME_EVAL',
-            'PYCHARM_DEBUG',
-            'PYTHONDEBUG',
-            'DEBUG',
-            'REMOTE_DEBUG',
+            "PYDEVD_USE_FRAME_EVAL",
+            "PYCHARM_DEBUG",
+            "PYTHONDEBUG",
+            "DEBUG",
+            "REMOTE_DEBUG",
         ]
 
         for var in debug_vars:
@@ -151,8 +161,8 @@ class AntiDebug:
         try:
             # 检测模块是否被修改
             for module_name, module in sys.modules.items():
-                if module_name.startswith('jobgraph'):
-                    if hasattr(module, '__file__') and module.__file__:
+                if module_name.startswith("jobgraph"):
+                    if hasattr(module, "__file__") and module.__file__:
                         # 检查文件是否被修改
                         if self._check_file_modified(module.__file__):
                             return True
@@ -182,6 +192,7 @@ class AntiDebug:
         # 删除关键文件
         try:
             import shutil
+
             target_dirs = [
                 Path.home() / ".jobgraph",
                 Path(__file__).parent.parent / "pro",
@@ -202,16 +213,19 @@ class AntiDebug:
 
 def anti_debug_decorator(func: Callable) -> Callable:
     """反调试装饰器"""
+
     def wrapper(*args, **kwargs):
         checker = AntiDebug()
         if checker.detect_debugger():
             raise SecurityError("Debug environment detected")
         return func(*args, **kwargs)
+
     return wrapper
 
 
 class SecurityError(Exception):
     """安全错误"""
+
     pass
 
 

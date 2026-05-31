@@ -1,7 +1,6 @@
 """Answer generation with citations."""
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from loguru import logger
 
@@ -53,9 +52,7 @@ class AnswerGenerator:
             temperature=0,
         )
 
-    def generate(
-        self, query: str, context: list[RetrievalResult]
-    ) -> Answer:
+    def generate(self, query: str, context: list[RetrievalResult]) -> Answer:
         """Generate answer from query and context."""
         # Build context text
         context_text = self._build_context(context)
@@ -63,18 +60,25 @@ class AnswerGenerator:
         # Generate answer
         from langchain_core.prompts import ChatPromptTemplate
 
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", SYSTEM_PROMPT),
-            ("human", "上下文信息:\n{context}\n\n用户问题: {query}\n\n请基于上述上下文信息，提供详细、准确的回答，并标注信息来源。"),
-        ])
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", SYSTEM_PROMPT),
+                (
+                    "human",
+                    "上下文信息:\n{context}\n\n用户问题: {query}\n\n请基于上述上下文信息，提供详细、准确的回答，并标注信息来源。",
+                ),
+            ]
+        )
 
         chain = prompt | self.llm
 
         try:
-            response = chain.invoke({
-                "context": context_text,
-                "query": query,
-            })
+            response = chain.invoke(
+                {
+                    "context": context_text,
+                    "query": query,
+                }
+            )
             answer_text = response.content
         except Exception as e:
             logger.error(f"Answer generation failed: {e}")
@@ -109,9 +113,7 @@ class AnswerGenerator:
 
         return "\n\n".join(parts)
 
-    def _extract_citations(
-        self, answer: str, context: list[RetrievalResult]
-    ) -> list[dict]:
+    def _extract_citations(self, answer: str, context: list[RetrievalResult]) -> list[dict]:
         """Extract citations from answer."""
         import re
 

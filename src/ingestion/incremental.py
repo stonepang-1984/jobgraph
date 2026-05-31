@@ -1,11 +1,9 @@
 """Incremental update manager for document ingestion."""
 
 import hashlib
-import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from loguru import logger
 
@@ -24,9 +22,9 @@ class DocumentStatus:
     status: str  # pending, processing, completed, failed, deleted
     chunk_count: int = 0
     entity_count: int = 0
-    error_message: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    error_message: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
 
 
 class IncrementalManager:
@@ -57,7 +55,7 @@ class IncrementalManager:
 
         return hasher.hexdigest()
 
-    def get_document_status(self, doc_id: str) -> Optional[DocumentStatus]:
+    def get_document_status(self, doc_id: str) -> DocumentStatus | None:
         """Get document status by ID."""
         cypher = """
         MATCH (d:DocumentStatus {doc_id: $doc_id})
@@ -69,7 +67,7 @@ class IncrementalManager:
             return DocumentStatus(**data)
         return None
 
-    def get_document_by_path(self, file_path: str) -> Optional[DocumentStatus]:
+    def get_document_by_path(self, file_path: str) -> DocumentStatus | None:
         """Get document status by file path."""
         cypher = """
         MATCH (d:DocumentStatus {file_path: $file_path})
@@ -256,9 +254,9 @@ class IncrementalManager:
         self,
         doc_id: str,
         status: str,
-        file_hash: Optional[str] = None,
-        file_size: Optional[int] = None,
-        last_modified: Optional[float] = None,
+        file_hash: str | None = None,
+        file_size: int | None = None,
+        last_modified: float | None = None,
     ) -> None:
         """Update document status."""
         params = {"doc_id": doc_id, "status": status, "updated_at": datetime.now().isoformat()}
@@ -277,7 +275,7 @@ class IncrementalManager:
 
         cypher = f"""
         MATCH (d:DocumentStatus {{doc_id: $doc_id}})
-        SET {', '.join(set_clauses)}
+        SET {", ".join(set_clauses)}
         """
         neo4j_client.execute_write(cypher, params)
 

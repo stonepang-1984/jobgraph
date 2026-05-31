@@ -1,7 +1,6 @@
 """Company Profile - 公司画像 (免费功能)"""
 
-from typing import Optional
-from loguru import logger
+
 
 from src.graph.neo4j_client import neo4j_client
 
@@ -9,7 +8,7 @@ from src.graph.neo4j_client import neo4j_client
 class CompanyProfile:
     """公司画像"""
 
-    def get_company(self, company_id: str) -> Optional[dict]:
+    def get_company(self, company_id: str) -> dict | None:
         """获取公司详情"""
         cypher = """
         MATCH (c:Company {id: $id})

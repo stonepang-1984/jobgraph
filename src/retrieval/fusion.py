@@ -2,8 +2,6 @@
 
 from collections import defaultdict
 
-from loguru import logger
-
 from config.settings import settings
 from src.retrieval.vector_retriever import RetrievalResult
 

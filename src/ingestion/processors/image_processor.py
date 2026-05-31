@@ -2,13 +2,12 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Union
 
 from loguru import logger
 
 from config.settings import settings
-from src.embeddings.image_embedder import ImageEmbedder, image_embedder
-from src.embeddings.text_embedder import TextEmbedder, text_embedder
+from src.embeddings.image_embedder import ImageEmbedder
+from src.embeddings.text_embedder import TextEmbedder
 
 
 @dataclass
@@ -24,8 +23,8 @@ class ImageData:
     format: str = ""
     visual_embedding: list[float] = field(default_factory=list)
     text_embedding: list[float] = field(default_factory=list)
-    page_number: Optional[int] = None
-    bbox: Optional[dict] = None
+    page_number: int | None = None
+    bbox: dict | None = None
 
 
 class ImageProcessor:
@@ -56,9 +55,9 @@ class ImageProcessor:
 
     def process(
         self,
-        image_path: Union[str, Path],
-        page_number: Optional[int] = None,
-        bbox: Optional[dict] = None,
+        image_path: str | Path,
+        page_number: int | None = None,
+        bbox: dict | None = None,
     ) -> ImageData:
         """Process a single image."""
         path = Path(image_path)
@@ -112,9 +111,10 @@ class ImageProcessor:
     def _generate_caption(self, image_path: Path, ocr_text: str) -> str:
         """Generate image caption using LLM."""
         try:
-            from langchain_openai import ChatOpenAI
-            from langchain_core.messages import HumanMessage
             import base64
+
+            from langchain_core.messages import HumanMessage
+            from langchain_openai import ChatOpenAI
 
             # Read image as base64
             with open(image_path, "rb") as f:

@@ -1,7 +1,6 @@
 """Text chunking with semantic awareness."""
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 import tiktoken
 from loguru import logger
@@ -19,7 +18,7 @@ class TextChunk:
     chunk_index: int
     metadata: dict = field(default_factory=dict)
     token_count: int = 0
-    page_number: Optional[int] = None
+    page_number: int | None = None
 
 
 class SemanticChunkSplitter:
@@ -50,6 +49,7 @@ class SemanticChunkSplitter:
     def _is_markdown(self, text: str) -> bool:
         """Check if text is markdown format."""
         import re
+
         return bool(re.search(r"^#{1,6}\s", text, re.MULTILINE))
 
     def _split_markdown(self, text: str, document_id: str) -> list[TextChunk]:
@@ -92,9 +92,7 @@ class SemanticChunkSplitter:
 
         return chunks
 
-    def _split_recursive(
-        self, text: str, document_id: str, start_index: int = 0
-    ) -> list[TextChunk]:
+    def _split_recursive(self, text: str, document_id: str, start_index: int = 0) -> list[TextChunk]:
         """Split text recursively by separators."""
         separators = ["\n\n", "\n", "。", "！", "？", "；", "，", ".", "!", "?", ";", ",", " "]
 

@@ -1,10 +1,9 @@
 """Job Search - 岗位搜索 (免费功能)"""
 
-from typing import Optional
+
 from loguru import logger
 
 from src.graph.neo4j_client import neo4j_client
-
 
 # 免费版限制
 FREE_SEARCH_LIMIT = 50
@@ -19,9 +18,9 @@ class JobSearch:
 
     def search(
         self,
-        query: Optional[str] = None,
-        location: Optional[str] = None,
-        salary_min: Optional[float] = None,
+        query: str | None = None,
+        location: str | None = None,
+        salary_min: float | None = None,
         limit: int = FREE_SEARCH_LIMIT,
     ) -> list[dict]:
         """搜索岗位

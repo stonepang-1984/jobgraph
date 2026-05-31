@@ -1,7 +1,5 @@
 """JobGraph Configuration - 统一版本配置"""
 
-from typing import Optional
-from loguru import logger
 
 
 # Version

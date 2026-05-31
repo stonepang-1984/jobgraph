@@ -1,14 +1,12 @@
 """Hybrid retriever combining vector and graph retrieval."""
 
-from typing import Optional
 
 from loguru import logger
 
 from config.settings import settings
-from src.retrieval.vector_retriever import VectorRetriever, RetrievalResult, vector_retriever
-from src.retrieval.graph_retriever import GraphRetriever, graph_retriever
-from src.retrieval.fusion import reciprocal_rank_fusion, deduplicate_results
-from src.embeddings.text_embedder import text_embedder
+from src.retrieval.fusion import deduplicate_results, reciprocal_rank_fusion
+from src.retrieval.graph_retriever import GraphRetriever
+from src.retrieval.vector_retriever import RetrievalResult, VectorRetriever
 
 
 class HybridRetriever:
@@ -93,6 +91,7 @@ class QueryEngine:
     ):
         self.retriever = retriever or HybridRetriever()
         from src.generation.answer_generator import answer_generator
+
         self.generator = generator or answer_generator
 
     def query(self, question: str) -> dict:

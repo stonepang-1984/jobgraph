@@ -2,9 +2,9 @@
 
 from src.ingestion.extractors.entity_extractor import (
     Entity,
-    Relation,
-    ExtractionResult,
     EntityRelationExtractor,
+    ExtractionResult,
+    Relation,
     entity_extractor,
 )
 

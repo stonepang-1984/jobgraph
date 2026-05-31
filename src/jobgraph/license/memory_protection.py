@@ -7,14 +7,12 @@
 4. 代码自修改 - 执行后销毁
 """
 
-import ctypes
 import gc
 import mmap
-import os
 import sys
 import threading
-import time
-from typing import Optional, Callable, Any
+from typing import Any
+
 from loguru import logger
 
 
@@ -23,8 +21,8 @@ class MemoryProtection:
 
     def __init__(self):
         self._protected_regions: list[dict] = []
-        self._encryption_key: Optional[bytes] = None
-        self._monitor_thread: Optional[threading.Thread] = None
+        self._encryption_key: bytes | None = None
+        self._monitor_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
 
     def set_encryption_key(self, key: bytes) -> None:
@@ -61,7 +59,7 @@ class MemoryProtection:
         """
         # 1. 解密
         decrypted = self.unprotect_code(encrypted_code)
-        code_str = decrypted.decode('utf-8')
+        code_str = decrypted.decode("utf-8")
 
         # 2. 准备执行环境
         if context is None:
@@ -72,14 +70,15 @@ class MemoryProtection:
         try:
             # 创建临时模块
             import types
-            module = types.ModuleType('__secure_exec__')
+
+            module = types.ModuleType("__secure_exec__")
             module.__dict__.update(context)
 
             # 执行代码
-            exec(compile(code_str, '<secure>', 'exec'), module.__dict__)
+            exec(compile(code_str, "<secure>", "exec"), module.__dict__)
 
             # 获取结果
-            result = module.__dict__.get('__result__')
+            result = module.__dict__.get("__result__")
         finally:
             # 4. 立即销毁
             self._secure_delete(decrypted)
@@ -99,6 +98,7 @@ class MemoryProtection:
         if isinstance(data, (bytes, bytearray)):
             # 用随机数据覆盖
             import os
+
             length = len(data)
             if isinstance(data, bytearray):
                 # 直接覆盖
@@ -110,21 +110,23 @@ class MemoryProtection:
                 for i in range(length):
                     mutable[i] = ord(os.urandom(1))
 
-    def allocate_secure_memory(self, size: int) -> Optional[mmap.mmap]:
+    def allocate_secure_memory(self, size: int) -> mmap.mmap | None:
         """分配安全内存区域"""
         try:
             # 创建匿名内存映射
-            if sys.platform == 'win32':
+            if sys.platform == "win32":
                 mem = mmap.mmap(-1, size)
             else:
                 mem = mmap.mmap(-1, size, prot=mmap.PROT_READ | mmap.PROT_WRITE)
 
             # 记录保护区域
-            self._protected_regions.append({
-                'address': id(mem),
-                'size': size,
-                'mmap': mem,
-            })
+            self._protected_regions.append(
+                {
+                    "address": id(mem),
+                    "size": size,
+                    "mmap": mem,
+                }
+            )
 
             return mem
 
@@ -137,16 +139,13 @@ class MemoryProtection:
         try:
             # 清零内存
             mem.seek(0)
-            mem.write(b'\x00' * len(mem))
+            mem.write(b"\x00" * len(mem))
 
             # 关闭映射
             mem.close()
 
             # 从记录中移除
-            self._protected_regions = [
-                r for r in self._protected_regions
-                if r['mmap'] != mem
-            ]
+            self._protected_regions = [r for r in self._protected_regions if r["mmap"] != mem]
 
         except Exception as e:
             logger.error(f"Failed to free secure memory: {e}")
@@ -157,10 +156,7 @@ class MemoryProtection:
             return
 
         self._stop_event.clear()
-        self._monitor_thread = threading.Thread(
-            target=self._memory_monitor_loop,
-            daemon=True
-        )
+        self._monitor_thread = threading.Thread(target=self._memory_monitor_loop, daemon=True)
         self._monitor_thread.start()
 
     def stop_memory_monitor(self) -> None:
@@ -187,9 +183,10 @@ class MemoryProtection:
         """检测调试器"""
         try:
             # 检测 ptrace
-            if sys.platform != 'win32':
+            if sys.platform != "win32":
                 import ctypes
-                libc = ctypes.CDLL('libc.so.6')
+
+                libc = ctypes.CDLL("libc.so.6")
                 # PTRACE_TRACEME = 0
                 result = libc.ptrace(0, 0, 0, 0)
                 if result == -1:
@@ -208,7 +205,7 @@ class MemoryProtection:
         """检查内存完整性"""
         for region in self._protected_regions:
             try:
-                mem = region['mmap']
+                mem = region["mmap"]
                 # 检查内存是否被篡改
                 # 这里可以添加更复杂的完整性检查
             except Exception:
@@ -221,7 +218,7 @@ class MemoryProtection:
         # 清理所有保护区域
         for region in self._protected_regions:
             try:
-                self.free_secure_memory(region['mmap'])
+                self.free_secure_memory(region["mmap"])
             except Exception:
                 pass
 
@@ -246,23 +243,24 @@ class SecureCodeLoader:
         """
         # 设置加密密钥
         from src.jobgraph.license.manager import license_manager
+
         if license_manager.decrypt_key:
             self.memory_protection.set_encryption_key(license_manager.decrypt_key)
 
         # 安全执行
         context = {
-            '__name__': module_name,
-            '__file__': f'<encrypted:{module_name}>',
+            "__name__": module_name,
+            "__file__": f"<encrypted:{module_name}>",
         }
 
         return self.memory_protection.secure_execute(encrypted_code, context)
 
-    def load_module_secure(self, module_name: str, enc_path: str) -> Optional[Any]:
+    def load_module_secure(self, module_name: str, enc_path: str) -> Any | None:
         """安全加载模块"""
         import types
 
         # 读取加密文件
-        with open(enc_path, 'rb') as f:
+        with open(enc_path, "rb") as f:
             encrypted_code = f.read()
 
         # 解密
@@ -273,14 +271,14 @@ class SecureCodeLoader:
             return None
 
         decrypted = decrypt_data(encrypted_code, license_manager.decrypt_key)
-        code_str = decrypted.decode('utf-8')
+        code_str = decrypted.decode("utf-8")
 
         # 创建模块
         module = types.ModuleType(module_name)
-        module.__file__ = f'<encrypted:{module_name}>'
+        module.__file__ = f"<encrypted:{module_name}>"
 
         # 执行代码
-        exec(compile(code_str, module_name, 'exec'), module.__dict__)
+        exec(compile(code_str, module_name, "exec"), module.__dict__)
 
         # 立即销毁解密后的代码
         self.memory_protection._secure_delete(decrypted)

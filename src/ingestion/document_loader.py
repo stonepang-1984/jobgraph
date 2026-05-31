@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 from loguru import logger
 
@@ -17,7 +16,7 @@ class Document:
     file_type: str
     content: str
     metadata: dict = field(default_factory=dict)
-    page_count: Optional[int] = None
+    page_count: int | None = None
 
 
 class DocumentLoader:

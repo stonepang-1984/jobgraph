@@ -9,14 +9,11 @@
 
 import gc
 import types
-from datetime import datetime
 from pathlib import Path
-from typing import Optional, Any
+
 from loguru import logger
 
 from src.jobgraph.license.crypto import decrypt_data
-from src.jobgraph.license.memory_protection import memory_protection
-
 
 # 付费模块目录
 PRO_DIR = Path(__file__).parent.parent / "pro"
@@ -27,6 +24,7 @@ class SecureProModuleLoader:
 
     def __init__(self, license_manager=None):
         from src.jobgraph.license.manager import license_manager as default_manager
+
         self.license_manager = license_manager or default_manager
         self.loaded_modules: dict[str, types.ModuleType] = {}
 
@@ -34,7 +32,7 @@ class SecureProModuleLoader:
         """检查付费功能是否可用"""
         return self.license_manager.check_pro_access()
 
-    def load_module(self, module_name: str) -> Optional[types.ModuleType]:
+    def load_module(self, module_name: str) -> types.ModuleType | None:
         """安全加载付费模块
 
         安全流程:
@@ -67,7 +65,7 @@ class SecureProModuleLoader:
             # 4. 解密代码
             enc_data = enc_path.read_bytes()
             decrypted = decrypt_data(enc_data, decrypt_key)
-            code_str = decrypted.decode('utf-8')
+            code_str = decrypted.decode("utf-8")
 
             # 5. 创建模块
             module = types.ModuleType(f"jobgraph.pro.{module_name}")
@@ -79,7 +77,7 @@ class SecureProModuleLoader:
             module._require_license = lambda: self.license_manager.check_pro_access()
 
             # 6. 在内存中执行代码
-            compiled_code = compile(code_str, module_name, 'exec')
+            compiled_code = compile(code_str, module_name, "exec")
             exec(compiled_code, module.__dict__)
 
             # 7. 立即销毁解密后的代码
@@ -99,8 +97,8 @@ class SecureProModuleLoader:
         except Exception as e:
             logger.error(f"Failed to load pro module '{module_name}': {e}")
             # 确保清理
-            self._secure_delete(decrypted if 'decrypted' in locals() else None)
-            self._secure_delete(code_str if 'code_str' in locals() else None)
+            self._secure_delete(decrypted if "decrypted" in locals() else None)
+            self._secure_delete(code_str if "code_str" in locals() else None)
             return None
 
     def _secure_delete(self, data) -> None:
@@ -115,6 +113,7 @@ class SecureProModuleLoader:
             if isinstance(data, (bytes, bytearray)):
                 # 用随机数据覆盖
                 import os
+
                 length = len(data)
                 if isinstance(data, bytearray):
                     for i in range(length):
@@ -135,7 +134,7 @@ class SecureProModuleLoader:
 
             # 清理模块属性
             for attr_name in list(module.__dict__.keys()):
-                if not attr_name.startswith('__'):
+                if not attr_name.startswith("__"):
                     try:
                         delattr(module, attr_name)
                     except Exception:
@@ -146,7 +145,7 @@ class SecureProModuleLoader:
 
             logger.debug(f"Unloaded pro module: {module_name}")
 
-    def get_module(self, module_name: str) -> Optional[types.ModuleType]:
+    def get_module(self, module_name: str) -> types.ModuleType | None:
         """获取已加载的模块"""
         if not self.is_available():
             return None
@@ -172,10 +171,7 @@ class ProFeatureAccess:
     def require(self, feature_name: str) -> None:
         """要求付费功能"""
         if not self.loader.is_available():
-            raise PermissionError(
-                f"功能 '{feature_name}' 需要专业版 License。"
-                f"请使用 'license activate <key>' 激活。"
-            )
+            raise PermissionError(f"功能 '{feature_name}' 需要专业版 License。请使用 'license activate <key>' 激活。")
 
 
 # 全局实例

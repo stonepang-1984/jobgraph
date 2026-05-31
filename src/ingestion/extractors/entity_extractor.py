@@ -1,9 +1,8 @@
 """Entity and relation extraction using LLM."""
 
-from typing import Optional
 
-from pydantic import BaseModel, Field
 from loguru import logger
+from pydantic import BaseModel, Field
 
 from config.settings import settings
 
@@ -93,10 +92,12 @@ class EntityRelationExtractor:
         """Extract entities and relations from text."""
         from langchain_core.prompts import ChatPromptTemplate
 
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", ENTITY_EXTRACTION_PROMPT),
-            ("human", "请从以下文本中提取实体和关系:\n\n{text}"),
-        ])
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", ENTITY_EXTRACTION_PROMPT),
+                ("human", "请从以下文本中提取实体和关系:\n\n{text}"),
+            ]
+        )
 
         chain = prompt | self.llm.with_structured_output(ExtractionResult)
 

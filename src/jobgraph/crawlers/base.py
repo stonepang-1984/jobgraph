@@ -2,13 +2,14 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Optional
+
 from loguru import logger
 
 
 @dataclass
 class CrawlResult:
     """Result from crawling."""
+
     companies: list[dict] = field(default_factory=list)
     jobs: list[dict] = field(default_factory=list)
     reviews: list[dict] = field(default_factory=list)

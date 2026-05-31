@@ -13,14 +13,13 @@ import hashlib
 import json
 import os
 import platform
-import time
 import uuid
+from collections.abc import Callable
 from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Optional, Callable, Any
 from functools import wraps
-from loguru import logger
+from pathlib import Path
 
+from loguru import logger
 
 # License 存储路径
 LICENSE_DIR = Path.home() / ".jobgraph"
@@ -38,14 +37,14 @@ class SecureLicenseManager:
     """安全增强版 License 管理器"""
 
     def __init__(self):
-        self.license_key: Optional[str] = None
+        self.license_key: str | None = None
         self.is_pro: bool = False
         self.is_trial: bool = False
         self.device_id: str = self._get_device_id()
-        self.expire_at: Optional[datetime] = None
-        self.trial_expire_at: Optional[datetime] = None
-        self.last_verification: Optional[datetime] = None
-        self.last_key_rotation: Optional[datetime] = None
+        self.expire_at: datetime | None = None
+        self.trial_expire_at: datetime | None = None
+        self.last_verification: datetime | None = None
+        self.last_key_rotation: datetime | None = None
         self._decrypt_keys: dict[str, bytes] = {}
         self._load_license()
 
@@ -209,7 +208,7 @@ class SecureLicenseManager:
             "device_id": self.device_id,
         }
 
-    def get_decrypt_key(self, module_name: str) -> Optional[bytes]:
+    def get_decrypt_key(self, module_name: str) -> bytes | None:
         """获取模块解密密钥"""
         if not self.check_pro_access():
             return None
@@ -293,7 +292,7 @@ class SecureLicenseManager:
             return False
         return True
 
-    def _extract_expire_time(self, key: str) -> Optional[datetime]:
+    def _extract_expire_time(self, key: str) -> datetime | None:
         parts = key.split("-")
         if len(parts) != 5:
             return None
@@ -326,7 +325,9 @@ class SecureLicenseManager:
         license_data = {
             "key": self.license_key,
             "device_id": self.device_id,
-            "expire_at": self.expire_at.isoformat() if self.expire_at else (datetime.now() + timedelta(days=365)).isoformat(),
+            "expire_at": self.expire_at.isoformat()
+            if self.expire_at
+            else (datetime.now() + timedelta(days=365)).isoformat(),
             "activated_at": datetime.now().isoformat(),
         }
         LICENSE_FILE.write_text(json.dumps(license_data, indent=2))
@@ -335,18 +336,20 @@ class SecureLicenseManager:
 
 def require_pro(feature_name: str):
     """装饰器：要求专业版权限"""
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
             if not license_manager.check_pro_access():
                 raise PermissionError(
-                    f"功能 '{feature_name}' 需要专业版 License。"
-                    f"请使用 'license activate <key>' 激活。"
+                    f"功能 '{feature_name}' 需要专业版 License。请使用 'license activate <key>' 激活。"
                 )
             return func(*args, **kwargs)
+
         wrapper._is_pro_feature = True
         wrapper._feature_name = feature_name
         return wrapper
+
     return decorator
 
 

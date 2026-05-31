@@ -1,9 +1,6 @@
 """Graph traversal retrieval."""
 
-from dataclasses import dataclass, field
-from typing import Optional
 
-from loguru import logger
 
 from config.settings import settings
 from src.graph.neo4j_client import neo4j_client
@@ -13,13 +10,11 @@ from src.retrieval.vector_retriever import RetrievalResult
 class GraphRetriever:
     """Retrieve using graph traversal."""
 
-    def retrieve_by_entity(
-        self, entity_names: list[str], hop: int = None
-    ) -> list[RetrievalResult]:
+    def retrieve_by_entity(self, entity_names: list[str], hop: int = None) -> list[RetrievalResult]:
         """Retrieve by entity name and expand subgraph."""
         hop = hop or settings.retrieval.graph_hop
 
-        cypher = """
+        cypher = f"""
         MATCH (e:Entity)
         WHERE e.name IN $entity_names
         MATCH path = (e)-[*1..{hop}]-(connected)
@@ -41,11 +36,9 @@ class GraphRetriever:
                e.name AS source_entity
         ORDER BY distance
         LIMIT 50
-        """.format(hop=hop)
+        """
 
-        results = neo4j_client.execute_query(
-            cypher, {"entity_names": entity_names}
-        )
+        results = neo4j_client.execute_query(cypher, {"entity_names": entity_names})
 
         return [
             RetrievalResult(
@@ -62,11 +55,9 @@ class GraphRetriever:
             for r in results
         ]
 
-    def retrieve_by_relation_path(
-        self, source: str, target: str, max_hops: int = 5
-    ) -> list[RetrievalResult]:
+    def retrieve_by_relation_path(self, source: str, target: str, max_hops: int = 5) -> list[RetrievalResult]:
         """Find relation path between two entities."""
-        cypher = """
+        cypher = f"""
         MATCH path = shortestPath(
             (source:Entity)-[*..{max_hops}]-(target:Entity)
         )
@@ -84,11 +75,9 @@ class GraphRetriever:
         length(path) AS hops
         ORDER BY hops
         LIMIT 5
-        """.format(max_hops=max_hops)
+        """
 
-        results = neo4j_client.execute_query(
-            cypher, {"source": source, "target": target}
-        )
+        results = neo4j_client.execute_query(cypher, {"source": source, "target": target})
 
         if not results:
             return []
@@ -111,9 +100,7 @@ class GraphRetriever:
             )
         ]
 
-    def retrieve_entity_neighbors(
-        self, entity_name: str, limit: int = 10
-    ) -> list[RetrievalResult]:
+    def retrieve_entity_neighbors(self, entity_name: str, limit: int = 10) -> list[RetrievalResult]:
         """Get direct neighbors of an entity."""
         cypher = """
         MATCH (e:Entity {name: $name})-[r:RELATES_TO]-(neighbor:Entity)
@@ -125,9 +112,7 @@ class GraphRetriever:
         LIMIT $limit
         """
 
-        results = neo4j_client.execute_query(
-            cypher, {"name": entity_name, "limit": limit}
-        )
+        results = neo4j_client.execute_query(cypher, {"name": entity_name, "limit": limit})
 
         return [
             RetrievalResult(
@@ -143,9 +128,7 @@ class GraphRetriever:
             for r in results
         ]
 
-    def _format_path(
-        self, nodes: list[dict], relations: list[dict]
-    ) -> str:
+    def _format_path(self, nodes: list[dict], relations: list[dict]) -> str:
         """Format path as readable text."""
         parts = []
         for i, node in enumerate(nodes):

@@ -2,21 +2,19 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 from loguru import logger
 
+from src.embeddings.text_embedder import TextEmbedder
+from src.graph.neo4j_client import neo4j_client
 from src.ingestion.document_loader import Document, DocumentLoader
 from src.ingestion.extractors.chunk_splitter import SemanticChunkSplitter, TextChunk
 from src.ingestion.extractors.entity_extractor import (
-    EntityRelationExtractor,
-    ExtractionResult,
     Entity,
+    EntityRelationExtractor,
     Relation,
 )
-from src.embeddings.text_embedder import TextEmbedder
-from src.graph.neo4j_client import neo4j_client
-from src.ingestion.incremental import incremental_manager, DocumentStatus
+from src.ingestion.incremental import incremental_manager
 
 
 @dataclass
@@ -185,19 +183,13 @@ class TextIngestionPipeline:
 
         # Find all supported files
         supported_extensions = {".pdf", ".docx", ".txt", ".md", ".markdown"}
-        files = [
-            f for f in path.rglob("*")
-            if f.suffix.lower() in supported_extensions
-        ]
+        files = [f for f in path.rglob("*") if f.suffix.lower() in supported_extensions]
 
         logger.info(f"Found {len(files)} documents in {directory}")
 
         # Check which files need update
         if not force:
-            files_to_process = [
-                f for f in files
-                if incremental_manager.needs_update(f)
-            ]
+            files_to_process = [f for f in files if incremental_manager.needs_update(f)]
             logger.info(f"{len(files_to_process)} documents need update")
         else:
             files_to_process = files

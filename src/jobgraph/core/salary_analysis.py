@@ -1,7 +1,6 @@
 """Salary Analysis - 薪资分析 (免费功能)"""
 
-from typing import Optional
-from loguru import logger
+
 
 from src.graph.neo4j_client import neo4j_client
 
@@ -9,11 +8,7 @@ from src.graph.neo4j_client import neo4j_client
 class SalaryAnalysis:
     """薪资分析"""
 
-    def get_salary_range(
-        self,
-        job_title: str,
-        location: Optional[str] = None
-    ) -> dict:
+    def get_salary_range(self, job_title: str, location: str | None = None) -> dict:
         """获取岗位薪资范围"""
         conditions = ["j.title CONTAINS $title", "j.is_active = true"]
         params = {"title": job_title}
@@ -41,11 +36,7 @@ class SalaryAnalysis:
         results = neo4j_client.execute_query(cypher, params)
         return results[0] if results else {}
 
-    def get_company_salary(
-        self,
-        company_id: str,
-        job_title: Optional[str] = None
-    ) -> dict:
+    def get_company_salary(self, company_id: str, job_title: str | None = None) -> dict:
         """获取公司薪资水平"""
         conditions = ["c.id = $company_id", "j.is_active = true"]
         params = {"company_id": company_id}

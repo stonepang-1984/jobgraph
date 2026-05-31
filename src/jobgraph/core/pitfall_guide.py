@@ -1,10 +1,7 @@
 """Pitfall Guide - 避坑指南 (免费功能)"""
 
-from typing import Optional
-from loguru import logger
 
 from src.graph.neo4j_client import neo4j_client
-
 
 # 坑点类型定义
 PITFALL_TYPES = {

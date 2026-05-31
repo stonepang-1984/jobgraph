@@ -1,9 +1,9 @@
 import atexit
 from contextlib import contextmanager
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
-from neo4j import Driver, GraphDatabase, Session, ManagedTransaction
 from loguru import logger
+from neo4j import Driver, GraphDatabase, ManagedTransaction
 
 from config.settings import settings
 
@@ -12,7 +12,7 @@ class Neo4jClient:
     """Neo4j database client with connection pooling."""
 
     _instance: Optional["Neo4jClient"] = None
-    _driver: Optional[Driver] = None
+    _driver: Driver | None = None
 
     def __new__(cls) -> "Neo4jClient":
         if cls._instance is None:
@@ -53,7 +53,7 @@ class Neo4jClient:
             logger.info("Neo4j connection closed")
 
     @contextmanager
-    def session(self, database: Optional[str] = None):
+    def session(self, database: str | None = None):
         """Context manager for Neo4j session."""
         db = database or settings.neo4j.database
         session = self.driver.session(database=db)
@@ -65,9 +65,9 @@ class Neo4jClient:
     def execute_query(
         self,
         query: str,
-        parameters: Optional[Dict[str, Any]] = None,
-        database: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        parameters: dict[str, Any] | None = None,
+        database: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Execute a Cypher query and return results as list of dicts."""
         with self.session(database) as session:
             result = session.run(query, parameters or {})
@@ -76,11 +76,12 @@ class Neo4jClient:
     def execute_write(
         self,
         query: str,
-        parameters: Optional[Dict[str, Any]] = None,
-        database: Optional[str] = None,
+        parameters: dict[str, Any] | None = None,
+        database: str | None = None,
     ) -> Any:
         """Execute a write transaction."""
         with self.session(database) as session:
+
             def _tx_func(tx: ManagedTransaction) -> Any:
                 result = tx.run(query, parameters or {})
                 return [record.data() for record in result]
@@ -90,12 +91,13 @@ class Neo4jClient:
     def execute_read(
         self,
         query: str,
-        parameters: Optional[Dict[str, Any]] = None,
-        database: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        parameters: dict[str, Any] | None = None,
+        database: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Execute a read transaction."""
         with self.session(database) as session:
-            def _tx_func(tx: ManagedTransaction) -> List[Dict[str, Any]]:
+
+            def _tx_func(tx: ManagedTransaction) -> list[dict[str, Any]]:
                 result = tx.run(query, parameters or {})
                 return [record.data() for record in result]
 
@@ -104,8 +106,8 @@ class Neo4jClient:
     def execute_batch(
         self,
         query: str,
-        parameters_list: List[Dict[str, Any]],
-        database: Optional[str] = None,
+        parameters_list: list[dict[str, Any]],
+        database: str | None = None,
         batch_size: int = 1000,
     ) -> None:
         """Execute a query in batches."""
@@ -126,7 +128,7 @@ class Neo4jClient:
         except Exception:
             return False
 
-    def get_node_count(self, label: Optional[str] = None) -> int:
+    def get_node_count(self, label: str | None = None) -> int:
         """Get count of nodes, optionally filtered by label."""
         if label:
             query = f"MATCH (n:{label}) RETURN count(n) AS count"
@@ -135,7 +137,7 @@ class Neo4jClient:
         result = self.execute_query(query)
         return result[0]["count"] if result else 0
 
-    def get_relationship_count(self, rel_type: Optional[str] = None) -> int:
+    def get_relationship_count(self, rel_type: str | None = None) -> int:
         """Get count of relationships, optionally filtered by type."""
         if rel_type:
             query = f"MATCH ()-[r:{rel_type}]->() RETURN count(r) AS count"

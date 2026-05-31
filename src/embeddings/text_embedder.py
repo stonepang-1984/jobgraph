@@ -1,6 +1,5 @@
 """Text embedding model."""
 
-from typing import Optional
 
 import numpy as np
 from loguru import logger

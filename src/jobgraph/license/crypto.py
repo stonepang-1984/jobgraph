@@ -1,9 +1,8 @@
 """Crypto utilities for License system"""
 
-import base64
 import hashlib
 import os
-from typing import Optional
+
 from loguru import logger
 
 
@@ -23,9 +22,9 @@ def encrypt_data(data: bytes, key: bytes) -> bytes:
         加密后的数据 (IV + 密文)
     """
     try:
-        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-        from cryptography.hazmat.primitives import padding
         from cryptography.hazmat.backends import default_backend
+        from cryptography.hazmat.primitives import padding
+        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
         # 生成随机 IV
         iv = os.urandom(16)
@@ -58,9 +57,9 @@ def decrypt_data(encrypted_data: bytes, key: bytes) -> bytes:
         解密后的数据
     """
     try:
-        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-        from cryptography.hazmat.primitives import padding
         from cryptography.hazmat.backends import default_backend
+        from cryptography.hazmat.primitives import padding
+        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
         # 提取 IV 和密文
         iv = encrypted_data[:16]

@@ -2,13 +2,11 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Union
 
 from loguru import logger
 
-from config.settings import settings
-from src.embeddings.image_embedder import ImageEmbedder, image_embedder
-from src.embeddings.text_embedder import TextEmbedder, text_embedder
+from src.embeddings.image_embedder import ImageEmbedder
+from src.embeddings.text_embedder import TextEmbedder
 
 
 @dataclass
@@ -18,12 +16,12 @@ class VideoSegment:
     id: str
     start_time: float
     end_time: float
-    keyframe_path: Optional[str] = None
+    keyframe_path: str | None = None
     transcript: str = ""
     scene_description: str = ""
     transcript_embedding: list[float] = field(default_factory=list)
     visual_embedding: list[float] = field(default_factory=list)
-    source_path: Optional[str] = None
+    source_path: str | None = None
 
 
 class VideoProcessor:
@@ -39,8 +37,8 @@ class VideoProcessor:
 
     def process(
         self,
-        video_path: Union[str, Path],
-        output_dir: Union[str, Path] = None,
+        video_path: str | Path,
+        output_dir: str | Path = None,
     ) -> list[VideoSegment]:
         """Process a video file."""
         path = Path(video_path)
@@ -58,9 +56,7 @@ class VideoProcessor:
         scenes = self._detect_scenes(path)
 
         # Create segments
-        segments = self._create_segments(
-            scenes, transcript, str(path), output_dir
-        )
+        segments = self._create_segments(scenes, transcript, str(path), output_dir)
 
         # Generate embeddings
         for seg in segments:
@@ -74,17 +70,16 @@ class VideoProcessor:
 
     def _extract_and_transcribe(self, video_path: Path) -> dict:
         """Extract audio and transcribe."""
-        import whisper
-        import tempfile
         import os
+        import tempfile
+
+        import whisper
 
         # Extract audio using ffmpeg
         audio_path = tempfile.mktemp(suffix=".wav")
 
         try:
-            os.system(
-                f"ffmpeg -i {video_path} -vn -acodec pcm_s16le -ar 16000 -ac 1 {audio_path} -y"
-            )
+            os.system(f"ffmpeg -i {video_path} -vn -acodec pcm_s16le -ar 16000 -ac 1 {audio_path} -y")
 
             # Transcribe
             model = whisper.load_model("large-v3")
@@ -131,23 +126,27 @@ class VideoProcessor:
 
                 if diff > threshold:
                     # Scene change detected
-                    scenes.append({
-                        "start_frame": scene_start,
-                        "end_frame": frame_idx,
-                        "start_time": scene_start / fps,
-                        "end_time": frame_idx / fps,
-                    })
+                    scenes.append(
+                        {
+                            "start_frame": scene_start,
+                            "end_frame": frame_idx,
+                            "start_time": scene_start / fps,
+                            "end_time": frame_idx / fps,
+                        }
+                    )
                     scene_start = frame_idx
 
             prev_hist = hist
 
         # Add last scene
-        scenes.append({
-            "start_frame": scene_start,
-            "end_frame": total_frames,
-            "start_time": scene_start / fps,
-            "end_time": total_frames / fps,
-        })
+        scenes.append(
+            {
+                "start_frame": scene_start,
+                "end_frame": total_frames,
+                "start_time": scene_start / fps,
+                "end_time": total_frames / fps,
+            }
+        )
 
         cap.release()
         return scenes
@@ -161,24 +160,20 @@ class VideoProcessor:
     ) -> list[VideoSegment]:
         """Create video segments from scenes."""
         import hashlib
-        import cv2
+
 
         segments = []
         transcript_segments = transcript.get("segments", [])
 
         for i, scene in enumerate(scenes):
-            seg_id = hashlib.md5(
-                f"{source_path}_{i}".encode()
-            ).hexdigest()[:16]
+            seg_id = hashlib.md5(f"{source_path}_{i}".encode()).hexdigest()[:16]
 
             # Extract keyframe
             keyframe_path = output_dir / f"frame_{i:04d}.jpg"
             self._extract_keyframe(source_path, scene, keyframe_path)
 
             # Align transcript
-            scene_transcript = self._align_transcript(
-                transcript_segments, scene["start_time"], scene["end_time"]
-            )
+            scene_transcript = self._align_transcript(transcript_segments, scene["start_time"], scene["end_time"])
 
             segments.append(
                 VideoSegment(
@@ -193,9 +188,7 @@ class VideoProcessor:
 
         return segments
 
-    def _extract_keyframe(
-        self, video_path: str, scene: dict, output_path: Path
-    ) -> None:
+    def _extract_keyframe(self, video_path: str, scene: dict, output_path: Path) -> None:
         """Extract keyframe from scene."""
         import cv2
 

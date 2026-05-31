@@ -3,13 +3,16 @@
 聚焦场景: 求职 - 帮你找到靠谱的工作，避开坑人的公司
 """
 
-from typing import Optional
+
 from loguru import logger
 
 from src.graph.neo4j_client import neo4j_client
 from src.jobgraph.models import (
-    Company, Job, Review, Pitfall, SalaryData,
-    UserProfile, MatchResult, RiskLevel, CompanySize, FundingStage
+    Company,
+    Job,
+    Pitfall,
+    Review,
+    UserProfile,
 )
 
 
@@ -47,33 +50,36 @@ class JobGraphManager:
             c.source = $source,
             c.updated_at = datetime()
         """
-        neo4j_client.execute_write(cypher, {
-            "id": company.id,
-            "name": company.name,
-            "name_en": company.name_en,
-            "industry": company.industry,
-            "size": company.size.value if company.size else None,
-            "founded": company.founded,
-            "headquarters": company.headquarters,
-            "website": company.website,
-            "description": company.description,
-            "funding_stage": company.funding_stage.value if company.funding_stage else None,
-            "valuation": company.valuation,
-            "is_listed": company.is_listed,
-            "stock_code": company.stock_code,
-            "employees": company.employees,
-            "avg_salary": company.avg_salary,
-            "avg_rating": company.avg_rating,
-            "review_count": company.review_count,
-            "risk_level": company.risk_level.value,
-            "risk_score": company.risk_score,
-            "risk_factors": company.risk_factors,
-            "tags": company.tags,
-            "source": company.source,
-        })
+        neo4j_client.execute_write(
+            cypher,
+            {
+                "id": company.id,
+                "name": company.name,
+                "name_en": company.name_en,
+                "industry": company.industry,
+                "size": company.size.value if company.size else None,
+                "founded": company.founded,
+                "headquarters": company.headquarters,
+                "website": company.website,
+                "description": company.description,
+                "funding_stage": company.funding_stage.value if company.funding_stage else None,
+                "valuation": company.valuation,
+                "is_listed": company.is_listed,
+                "stock_code": company.stock_code,
+                "employees": company.employees,
+                "avg_salary": company.avg_salary,
+                "avg_rating": company.avg_rating,
+                "review_count": company.review_count,
+                "risk_level": company.risk_level.value,
+                "risk_score": company.risk_score,
+                "risk_factors": company.risk_factors,
+                "tags": company.tags,
+                "source": company.source,
+            },
+        )
         logger.info(f"Created/updated company: {company.name}")
 
-    def get_company(self, company_id: str) -> Optional[dict]:
+    def get_company(self, company_id: str) -> dict | None:
         """获取公司详情."""
         cypher = """
         MATCH (c:Company {id: $id})
@@ -154,33 +160,36 @@ class JobGraphManager:
         MATCH (c:Company {id: $company_id})
         MERGE (c)-[:HAS_JOB]->(j)
         """
-        neo4j_client.execute_write(cypher, {
-            "id": job.id,
-            "title": job.title,
-            "company_id": job.company_id,
-            "company_name": job.company_name,
-            "department": job.department,
-            "job_type": job.job_type.value,
-            "location": job.location,
-            "is_remote": job.is_remote,
-            "salary_min": job.salary_min,
-            "salary_max": job.salary_max,
-            "salary_months": job.salary_months,
-            "experience_years": job.experience_years,
-            "education": job.education,
-            "skills": job.skills,
-            "description": job.description,
-            "benefits": job.benefits,
-            "source": job.source,
-            "is_active": job.is_active,
-        })
+        neo4j_client.execute_write(
+            cypher,
+            {
+                "id": job.id,
+                "title": job.title,
+                "company_id": job.company_id,
+                "company_name": job.company_name,
+                "department": job.department,
+                "job_type": job.job_type.value,
+                "location": job.location,
+                "is_remote": job.is_remote,
+                "salary_min": job.salary_min,
+                "salary_max": job.salary_max,
+                "salary_months": job.salary_months,
+                "experience_years": job.experience_years,
+                "education": job.education,
+                "skills": job.skills,
+                "description": job.description,
+                "benefits": job.benefits,
+                "source": job.source,
+                "is_active": job.is_active,
+            },
+        )
 
     def search_jobs(
         self,
-        query: Optional[str] = None,
-        location: Optional[str] = None,
-        salary_min: Optional[float] = None,
-        limit: int = 50
+        query: str | None = None,
+        location: str | None = None,
+        salary_min: float | None = None,
+        limit: int = 50,
     ) -> list[dict]:
         """搜索岗位."""
         conditions = ["j.is_active = true"]
@@ -266,25 +275,28 @@ class JobGraphManager:
         MATCH (c:Company {id: $company_id})
         MERGE (c)-[:HAS_REVIEW]->(r)
         """
-        neo4j_client.execute_write(cypher, {
-            "id": review.id,
-            "company_id": review.company_id,
-            "overall_rating": review.overall_rating,
-            "salary_rating": review.salary_rating,
-            "work_life_rating": review.work_life_rating,
-            "management_rating": review.management_rating,
-            "culture_rating": review.culture_rating,
-            "growth_rating": review.growth_rating,
-            "title": review.title,
-            "pros": review.pros,
-            "cons": review.cons,
-            "reviewer_title": review.reviewer_title,
-            "reviewer_tenure": review.reviewer_tenure,
-            "is_current_employee": review.is_current_employee,
-            "source": review.source,
-            "posted_at": review.posted_at,
-            "pitfall_tags": review.pitfall_tags,
-        })
+        neo4j_client.execute_write(
+            cypher,
+            {
+                "id": review.id,
+                "company_id": review.company_id,
+                "overall_rating": review.overall_rating,
+                "salary_rating": review.salary_rating,
+                "work_life_rating": review.work_life_rating,
+                "management_rating": review.management_rating,
+                "culture_rating": review.culture_rating,
+                "growth_rating": review.growth_rating,
+                "title": review.title,
+                "pros": review.pros,
+                "cons": review.cons,
+                "reviewer_title": review.reviewer_title,
+                "reviewer_tenure": review.reviewer_tenure,
+                "is_current_employee": review.is_current_employee,
+                "source": review.source,
+                "posted_at": review.posted_at,
+                "pitfall_tags": review.pitfall_tags,
+            },
+        )
 
     def get_company_reviews(self, company_id: str, limit: int = 20) -> list[dict]:
         """获取公司评价."""
@@ -318,19 +330,22 @@ class JobGraphManager:
         MATCH (c:Company {id: $company_id})
         MERGE (c)-[:HAS_PITFALL]->(p)
         """
-        neo4j_client.execute_write(cypher, {
-            "id": pitfall.id,
-            "company_id": pitfall.company_id,
-            "pitfall_type": pitfall.pitfall_type,
-            "severity": pitfall.severity,
-            "description": pitfall.description,
-            "evidence": pitfall.evidence,
-            "report_count": pitfall.report_count,
-            "confirmed_count": pitfall.confirmed_count,
-            "source": pitfall.source,
-            "reported_at": pitfall.reported_at,
-            "is_verified": pitfall.is_verified,
-        })
+        neo4j_client.execute_write(
+            cypher,
+            {
+                "id": pitfall.id,
+                "company_id": pitfall.company_id,
+                "pitfall_type": pitfall.pitfall_type,
+                "severity": pitfall.severity,
+                "description": pitfall.description,
+                "evidence": pitfall.evidence,
+                "report_count": pitfall.report_count,
+                "confirmed_count": pitfall.confirmed_count,
+                "source": pitfall.source,
+                "reported_at": pitfall.reported_at,
+                "is_verified": pitfall.is_verified,
+            },
+        )
 
     def get_company_pitfalls(self, company_id: str) -> list[dict]:
         """获取公司坑点."""
@@ -363,23 +378,26 @@ class JobGraphManager:
             u.prefer_remote = $prefer_remote,
             u.updated_at = datetime()
         """
-        neo4j_client.execute_write(cypher, {
-            "id": user.id,
-            "name": user.name,
-            "current_title": user.current_title,
-            "current_company": user.current_company,
-            "experience_years": user.experience_years,
-            "education": user.education,
-            "location": user.location,
-            "skills": user.skills,
-            "desired_titles": user.desired_titles,
-            "desired_locations": user.desired_locations,
-            "desired_salary_min": user.desired_salary_min,
-            "desired_salary_max": user.desired_salary_max,
-            "prefer_remote": user.prefer_remote,
-        })
+        neo4j_client.execute_write(
+            cypher,
+            {
+                "id": user.id,
+                "name": user.name,
+                "current_title": user.current_title,
+                "current_company": user.current_company,
+                "experience_years": user.experience_years,
+                "education": user.education,
+                "location": user.location,
+                "skills": user.skills,
+                "desired_titles": user.desired_titles,
+                "desired_locations": user.desired_locations,
+                "desired_salary_min": user.desired_salary_min,
+                "desired_salary_max": user.desired_salary_max,
+                "prefer_remote": user.prefer_remote,
+            },
+        )
 
-    def get_user_profile(self, user_id: str) -> Optional[dict]:
+    def get_user_profile(self, user_id: str) -> dict | None:
         """获取用户档案."""
         cypher = """
         MATCH (u:UserProfile {id: $id})

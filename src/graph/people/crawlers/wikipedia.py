@@ -2,7 +2,6 @@
 
 import hashlib
 import re
-from typing import Optional
 
 import requests
 from loguru import logger
@@ -37,11 +36,13 @@ class WikipediaCrawler(BaseCrawler):
 
             results = []
             for item in data.get("query", {}).get("search", []):
-                results.append({
-                    "title": item["title"],
-                    "snippet": item.get("snippet", ""),
-                    "pageid": item["pageid"],
-                })
+                results.append(
+                    {
+                        "title": item["title"],
+                        "snippet": item.get("snippet", ""),
+                        "pageid": item["pageid"],
+                    }
+                )
 
             return results
 
@@ -90,7 +91,7 @@ class WikipediaCrawler(BaseCrawler):
 
         return result
 
-    def _get_page(self, title: str) -> Optional[dict]:
+    def _get_page(self, title: str) -> dict | None:
         """Get Wikipedia page content."""
         params = {
             "action": "query",
@@ -162,9 +163,7 @@ class WikipediaCrawler(BaseCrawler):
 
         return infobox
 
-    def _build_person(
-        self, identifier: str, page_data: dict, infobox: dict
-    ) -> Optional[dict]:
+    def _build_person(self, identifier: str, page_data: dict, infobox: dict) -> dict | None:
         """Build person dict from crawled data."""
         name = infobox.get("name") or page_data.get("title", "")
         if not name:
@@ -202,20 +201,24 @@ class WikipediaCrawler(BaseCrawler):
         employer = infobox.get("employer", "")
         if employer:
             company_id = hashlib.md5(employer.encode()).hexdigest()[:16]
-            companies.append({
-                "id": company_id,
-                "name": employer,
-                "source": "wikipedia",
-            })
+            companies.append(
+                {
+                    "id": company_id,
+                    "name": employer,
+                    "source": "wikipedia",
+                }
+            )
 
         organization = infobox.get("organization", "")
         if organization and organization != employer:
             org_id = hashlib.md5(organization.encode()).hexdigest()[:16]
-            companies.append({
-                "id": org_id,
-                "name": organization,
-                "source": "wikipedia",
-            })
+            companies.append(
+                {
+                    "id": org_id,
+                    "name": organization,
+                    "source": "wikipedia",
+                }
+            )
 
         return companies
 
@@ -230,17 +233,17 @@ class WikipediaCrawler(BaseCrawler):
                 uni = uni.strip()
                 if uni:
                     uni_id = hashlib.md5(uni.encode()).hexdigest()[:16]
-                    universities.append({
-                        "id": uni_id,
-                        "name": uni,
-                        "source": "wikipedia",
-                    })
+                    universities.append(
+                        {
+                            "id": uni_id,
+                            "name": uni,
+                            "source": "wikipedia",
+                        }
+                    )
 
         return universities
 
-    def _extract_work_experience(
-        self, person: dict, infobox: dict, companies: list[dict]
-    ) -> list[dict]:
+    def _extract_work_experience(self, person: dict, infobox: dict, companies: list[dict]) -> list[dict]:
         """Extract work experience relationships."""
         if not person or not companies:
             return []
@@ -249,19 +252,19 @@ class WikipediaCrawler(BaseCrawler):
         title = infobox.get("title", "")
 
         for company in companies:
-            exps.append({
-                "person_id": person["id"],
-                "company_id": company["id"],
-                "position": title or "成员",
-                "is_current": True,
-                "source": "wikipedia",
-            })
+            exps.append(
+                {
+                    "person_id": person["id"],
+                    "company_id": company["id"],
+                    "position": title or "成员",
+                    "is_current": True,
+                    "source": "wikipedia",
+                }
+            )
 
         return exps
 
-    def _extract_education(
-        self, person: dict, infobox: dict, universities: list[dict]
-    ) -> list[dict]:
+    def _extract_education(self, person: dict, infobox: dict, universities: list[dict]) -> list[dict]:
         """Extract education relationships."""
         if not person or not universities:
             return []
@@ -270,12 +273,14 @@ class WikipediaCrawler(BaseCrawler):
         degree = infobox.get("education", "")
 
         for uni in universities:
-            edus.append({
-                "person_id": person["id"],
-                "university_id": uni["id"],
-                "degree": degree or None,
-                "source": "wikipedia",
-            })
+            edus.append(
+                {
+                    "person_id": person["id"],
+                    "university_id": uni["id"],
+                    "degree": degree or None,
+                    "source": "wikipedia",
+                }
+            )
 
         return edus
 

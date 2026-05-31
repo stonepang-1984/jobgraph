@@ -1,8 +1,6 @@
 """People graph data models."""
 
 from dataclasses import dataclass, field
-from datetime import date
-from typing import Optional
 
 
 @dataclass
@@ -11,19 +9,19 @@ class Person:
 
     id: str
     name: str
-    name_en: Optional[str] = None
-    gender: Optional[str] = None
-    birth_date: Optional[str] = None
-    birth_place: Optional[str] = None
-    nationality: Optional[str] = None
-    bio: Optional[str] = None
-    photo_url: Optional[str] = None
+    name_en: str | None = None
+    gender: str | None = None
+    birth_date: str | None = None
+    birth_place: str | None = None
+    nationality: str | None = None
+    bio: str | None = None
+    photo_url: str | None = None
     social_links: dict = field(default_factory=dict)
     tags: list[str] = field(default_factory=list)
-    source: Optional[str] = None
-    source_url: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    source: str | None = None
+    source_url: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
 
 
 @dataclass
@@ -32,18 +30,18 @@ class Company:
 
     id: str
     name: str
-    name_en: Optional[str] = None
-    industry: Optional[str] = None
-    size: Optional[str] = None  # startup/small/medium/large/enterprise
-    founded: Optional[int] = None
-    headquarters: Optional[str] = None
-    website: Optional[str] = None
-    description: Optional[str] = None
-    logo_url: Optional[str] = None
+    name_en: str | None = None
+    industry: str | None = None
+    size: str | None = None  # startup/small/medium/large/enterprise
+    founded: int | None = None
+    headquarters: str | None = None
+    website: str | None = None
+    description: str | None = None
+    logo_url: str | None = None
     tags: list[str] = field(default_factory=list)
-    source: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    source: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
 
 
 @dataclass
@@ -52,17 +50,17 @@ class University:
 
     id: str
     name: str
-    name_en: Optional[str] = None
-    location: Optional[str] = None
-    country: Optional[str] = None
-    ranking: Optional[int] = None
-    website: Optional[str] = None
-    description: Optional[str] = None
-    logo_url: Optional[str] = None
+    name_en: str | None = None
+    location: str | None = None
+    country: str | None = None
+    ranking: int | None = None
+    website: str | None = None
+    description: str | None = None
+    logo_url: str | None = None
     tags: list[str] = field(default_factory=list)
-    source: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    source: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
 
 
 @dataclass
@@ -71,9 +69,9 @@ class Position:
 
     id: str
     title: str
-    level: Optional[str] = None  # junior/mid/senior/executive/c-suite
-    department: Optional[str] = None
-    description: Optional[str] = None
+    level: str | None = None  # junior/mid/senior/executive/c-suite
+    department: str | None = None
+    description: str | None = None
 
 
 @dataclass
@@ -83,11 +81,11 @@ class WorkExperience:
     person_id: str
     company_id: str
     position: str
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
+    start_date: str | None = None
+    end_date: str | None = None
     is_current: bool = False
-    description: Optional[str] = None
-    source: Optional[str] = None
+    description: str | None = None
+    source: str | None = None
 
 
 @dataclass
@@ -96,12 +94,12 @@ class Education:
 
     person_id: str
     university_id: str
-    degree: Optional[str] = None  # bachelor/master/phd/mba
-    major: Optional[str] = None
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
-    description: Optional[str] = None
-    source: Optional[str] = None
+    degree: str | None = None  # bachelor/master/phd/mba
+    major: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+    description: str | None = None
+    source: str | None = None
 
 
 @dataclass
@@ -111,7 +109,7 @@ class PersonRelation:
     person1_id: str
     person2_id: str
     relation_type: str  # colleague/classmate/family/friend/mentor
-    description: Optional[str] = None
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
-    source: Optional[str] = None
+    description: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+    source: str | None = None

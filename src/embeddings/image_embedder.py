@@ -1,7 +1,7 @@
 """Image embedding using CLIP."""
 
-from typing import Optional, Union
 from pathlib import Path
+from typing import Union
 
 import numpy as np
 from loguru import logger
@@ -45,9 +45,7 @@ class ImageEmbedder:
         """Embed a single image."""
         return self.embed_batch([image])[0]
 
-    def embed_batch(
-        self, images: list[Union[str, Path, "PIL.Image.Image"]], batch_size: int = 16
-    ) -> list[list[float]]:
+    def embed_batch(self, images: list[Union[str, Path, "PIL.Image.Image"]], batch_size: int = 16) -> list[list[float]]:
         """Embed a batch of images."""
         if not images:
             return []
@@ -91,9 +89,7 @@ class ImageEmbedder:
         embeddings = outputs / outputs.norm(dim=-1, keepdim=True)
         return embeddings[0].cpu().numpy().tolist()
 
-    def similarity(
-        self, embedding1: list[float], embedding2: list[float]
-    ) -> float:
+    def similarity(self, embedding1: list[float], embedding2: list[float]) -> float:
         """Calculate cosine similarity between embeddings."""
         vec1 = np.array(embedding1)
         vec2 = np.array(embedding2)

@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Union
 
 import pandas as pd
 from loguru import logger
@@ -23,9 +22,9 @@ class TableData:
     markdown_repr: str = ""
     summary: str = ""
     embedding: list[float] = field(default_factory=list)
-    page_number: Optional[int] = None
-    bbox: Optional[dict] = None
-    source_path: Optional[str] = None
+    page_number: int | None = None
+    bbox: dict | None = None
+    source_path: str | None = None
 
 
 class TableProcessor:
@@ -38,8 +37,8 @@ class TableProcessor:
         self,
         df: pd.DataFrame,
         caption: str = "",
-        page_number: Optional[int] = None,
-        source_path: Optional[str] = None,
+        page_number: int | None = None,
+        source_path: str | None = None,
     ) -> TableData:
         """Process a pandas DataFrame."""
         import hashlib
@@ -69,19 +68,13 @@ class TableProcessor:
             source_path=source_path,
         )
 
-    def process_csv(
-        self, csv_path: Union[str, Path], caption: str = ""
-    ) -> TableData:
+    def process_csv(self, csv_path: str | Path, caption: str = "") -> TableData:
         """Process a CSV file."""
         path = Path(csv_path)
         df = pd.read_csv(path)
-        return self.process_dataframe(
-            df, caption=caption, source_path=str(path)
-        )
+        return self.process_dataframe(df, caption=caption, source_path=str(path))
 
-    def process_excel(
-        self, excel_path: Union[str, Path], sheet_name: str = None
-    ) -> list[TableData]:
+    def process_excel(self, excel_path: str | Path, sheet_name: str = None) -> list[TableData]:
         """Process an Excel file."""
         path = Path(excel_path)
         xls = pd.ExcelFile(path)
@@ -91,9 +84,7 @@ class TableProcessor:
             if sheet_name and sheet != sheet_name:
                 continue
             df = pd.read_excel(path, sheet_name=sheet)
-            table = self.process_dataframe(
-                df, caption=f"Sheet: {sheet}", source_path=str(path)
-            )
+            table = self.process_dataframe(df, caption=f"Sheet: {sheet}", source_path=str(path))
             tables.append(table)
 
         return tables
@@ -101,8 +92,8 @@ class TableProcessor:
     def _generate_summary(self, markdown: str, caption: str) -> str:
         """Generate table summary using LLM."""
         try:
-            from langchain_openai import ChatOpenAI
             from langchain_core.prompts import ChatPromptTemplate
+            from langchain_openai import ChatOpenAI
 
             llm = ChatOpenAI(
                 model=settings.llm.openai_model,
@@ -111,10 +102,12 @@ class TableProcessor:
                 temperature=0,
             )
 
-            prompt = ChatPromptTemplate.from_messages([
-                ("system", "你是一个数据分析专家。请分析表格内容，提取关键信息、趋势、极值。"),
-                ("human", "表格标题: {caption}\n\n表格内容:\n{markdown}\n\n请提供简洁的表格摘要。"),
-            ])
+            prompt = ChatPromptTemplate.from_messages(
+                [
+                    ("system", "你是一个数据分析专家。请分析表格内容，提取关键信息、趋势、极值。"),
+                    ("human", "表格标题: {caption}\n\n表格内容:\n{markdown}\n\n请提供简洁的表格摘要。"),
+                ]
+            )
 
             chain = prompt | llm
             response = chain.invoke({"caption": caption, "markdown": markdown})

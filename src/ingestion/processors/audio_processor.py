@@ -2,11 +2,9 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Union
 
 from loguru import logger
 
-from config.settings import settings
 from src.embeddings.text_embedder import TextEmbedder, text_embedder
 
 
@@ -18,11 +16,11 @@ class AudioSegment:
     start_time: float
     end_time: float
     transcript: str
-    speaker_id: Optional[str] = None
+    speaker_id: str | None = None
     language: str = "zh"
     confidence: float = 0.0
     embedding: list[float] = field(default_factory=list)
-    source_path: Optional[str] = None
+    source_path: str | None = None
 
 
 class AudioProcessor:
@@ -48,7 +46,7 @@ class AudioProcessor:
 
     def process(
         self,
-        audio_path: Union[str, Path],
+        audio_path: str | Path,
         language: str = "zh",
     ) -> list[AudioSegment]:
         """Process an audio file."""
@@ -77,18 +75,14 @@ class AudioProcessor:
         )
         return result
 
-    def _split_segments(
-        self, result: dict, source_path: str
-    ) -> list[AudioSegment]:
+    def _split_segments(self, result: dict, source_path: str) -> list[AudioSegment]:
         """Split transcription into segments."""
         import hashlib
 
         segments = []
 
         for i, segment in enumerate(result.get("segments", [])):
-            seg_id = hashlib.md5(
-                f"{source_path}_{i}".encode()
-            ).hexdigest()[:16]
+            seg_id = hashlib.md5(f"{source_path}_{i}".encode()).hexdigest()[:16]
 
             segments.append(
                 AudioSegment(
