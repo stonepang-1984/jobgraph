@@ -83,5 +83,11 @@ jobgraph-import: ## Import sample job data
 jobgraph-generate: ## Generate and import sample data (usage: make jobgraph-generate COUNT=50)
 	python3 scripts/import_generated.py --companies $(or $(COUNT),50)
 
+crawl-data: ## Crawl data from public sources
+	python3 scripts/crawl_data.py
+
+import-data: ## Import crawled data to Neo4j
+	python3 scripts/import_to_neo4j.py
+
 jobgraph: ## Start JobGraph web UI (求职图谱)
 	streamlit run web/jobgraph.py --server.port 8504
