@@ -89,5 +89,14 @@ crawl-data: ## Crawl data from public sources
 import-data: ## Import crawled data to Neo4j
 	python3 scripts/import_to_neo4j.py
 
+update-data: ## Update data (incremental)
+	python3 scripts/update_data.py
+
+update-data-force: ## Force update data
+	python3 scripts/update_data.py --force
+
+update-status: ## Show data update status
+	python3 scripts/update_data.py --status
+
 jobgraph: ## Start JobGraph web UI (求职图谱)
 	streamlit run web/jobgraph.py --server.port 8504
