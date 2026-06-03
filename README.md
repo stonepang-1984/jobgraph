@@ -40,51 +40,44 @@
 
 ## 🚀 快速开始
 
-### 1. 安装
+### 一键启动 (推荐)
 
 ```bash
 # 克隆项目
 git clone <repository-url>
 cd jobgraph
 
-# 一键启动 (自动安装依赖、启动数据库)
-./dev.sh
-```
-
-### 2. 获取数据
-
-有三种方式获取数据：
-
-#### 方式一：离线数据包 (最简单)
-
-```bash
-# 从管理员处获取数据包，然后导入
-make sync-package FILE=data_package.zip
-```
-
-#### 方式二：Tailscale 直连 (实时同步)
-
-```bash
-# 1. 安装 Tailscale: https://tailscale.com/download
-# 2. 加入数据中心网络
-# 3. 同步数据
-make sync-tailscale SERVER=http://数据中心地址:8000
-```
-
-#### 方式三：云服务器同步
-
-```bash
-# 从云服务器同步
-make sync-cloud URL=https://api.example.com TOKEN=你的token
-```
-
-### 3. 启动使用
-
-```bash
-# 启动求职图谱
-make jobgraph
+# 一键启动 (自动安装依赖、启动数据库、导入示例数据)
+make quickstart
 
 # 访问 http://localhost:8504
+```
+
+**就这么简单！** 内置 34 家公司、150+ 岗位、180+ 评价数据，开箱即用。
+
+### 其他启动方式
+
+```bash
+# 方式二：本地调试
+make dev
+
+# 方式三：Docker 部署
+make deploy
+```
+
+### 获取更多数据 (可选)
+
+数据同步是**可选的**，你可以：
+- 使用内置示例数据
+- 自己导入数据
+- 从数据中心同步数据
+
+```bash
+# 从离线数据包导入
+make sync-package FILE=data_package.zip
+
+# 从数据中心同步 (需要 Tailscale)
+make sync-tailscale SERVER=http://数据中心地址:8000
 ```
 
 ## 💡 使用场景
@@ -195,7 +188,13 @@ make jobgraph         # 启动求职图谱 (8504)
 
 ### Q: 数据从哪里来？
 
-A: 数据通过安全渠道获取，定期更新。你可以通过离线数据包或在线同步获取最新数据。
+A: 应用内置了示例数据（34家公司、150+岗位、180+评价），开箱即用。你也可以：
+- 自己导入数据
+- 从数据中心同步最新数据（可选）
+
+### Q: 必须连接数据中心吗？
+
+A: **不需要！** 应用完全独立运行，内置数据足够使用。数据中心同步是可选的，用于获取最新数据。
 
 ### Q: 如何保证隐私？
 
@@ -207,10 +206,10 @@ A: 支持 Windows、macOS、Linux。需要 Python 3.10+ 环境。
 
 ### Q: 如何获取最新数据？
 
-A: 有三种方式：
-1. 从管理员获取离线数据包
-2. 通过 Tailscale 直连同步
-3. 通过云服务器同步
+A: 三种方式（可选）：
+1. 使用内置示例数据（默认）
+2. 从离线数据包导入
+3. 从数据中心同步
 
 ## 📄 许可证
 

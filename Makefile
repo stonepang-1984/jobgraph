@@ -1,7 +1,10 @@
-.PHONY: help install init-db start stop logs clean api web deploy dev dev-stop dev-status
+.PHONY: help install init-db start stop logs clean api web deploy dev dev-stop dev-status quickstart
 
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+quickstart: ## One-click setup with sample data (recommended for first time)
+	@bash quickstart.sh
 
 deploy: ## One-click deployment (Docker)
 	@bash deploy.sh
