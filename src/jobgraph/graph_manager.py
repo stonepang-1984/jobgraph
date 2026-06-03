@@ -476,16 +476,40 @@ class JobGraphManager:
 
     def get_stats(self) -> dict:
         """获取图谱统计."""
-        cypher = """
-        OPTIONAL MATCH (c:Company) WITH count(c) AS companies
-        OPTIONAL MATCH (j:Job) WITH companies, count(j) AS jobs
-        OPTIONAL MATCH (r:Review) WITH companies, jobs, count(r) AS reviews
-        OPTIONAL MATCH (p:Pitfall) WITH companies, jobs, reviews, count(p) AS pitfalls
-        OPTIONAL MATCH (u:UserProfile) WITH companies, jobs, reviews, pitfalls, count(u) AS users
-        RETURN companies, jobs, reviews, pitfalls, users
-        """
-        results = neo4j_client.execute_query(cypher)
-        return results[0] if results else {}
+        # 使用独立查询避免标签不存在的警告
+        stats = {}
+        
+        try:
+            result = neo4j_client.execute_query("MATCH (c:Company) RETURN count(c) AS cnt")
+            stats["companies"] = result[0]["cnt"] if result else 0
+        except Exception:
+            stats["companies"] = 0
+        
+        try:
+            result = neo4j_client.execute_query("MATCH (j:Job) RETURN count(j) AS cnt")
+            stats["jobs"] = result[0]["cnt"] if result else 0
+        except Exception:
+            stats["jobs"] = 0
+        
+        try:
+            result = neo4j_client.execute_query("MATCH (r:Review) RETURN count(r) AS cnt")
+            stats["reviews"] = result[0]["cnt"] if result else 0
+        except Exception:
+            stats["reviews"] = 0
+        
+        try:
+            result = neo4j_client.execute_query("MATCH (p:Pitfall) RETURN count(p) AS cnt")
+            stats["pitfalls"] = result[0]["cnt"] if result else 0
+        except Exception:
+            stats["pitfalls"] = 0
+        
+        try:
+            result = neo4j_client.execute_query("MATCH (u:UserProfile) RETURN count(u) AS cnt")
+            stats["users"] = result[0]["cnt"] if result else 0
+        except Exception:
+            stats["users"] = 0
+        
+        return stats
 
 
 # Singleton instance
