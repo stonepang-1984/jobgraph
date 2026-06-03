@@ -15,8 +15,10 @@ import streamlit as st
 from loguru import logger
 
 from src.jobgraph.graph_manager import job_manager
-from src.jobgraph.models import CompanySize
+from src.jobgraph.models import CompanySize, UserProfile
 from src.jobgraph.user.manager import user_manager
+from src.jobgraph.resume import resume_parser, resume_extractor, privacy_filter
+from src.jobgraph.matching import job_matcher
 
 
 # ============================================================
@@ -44,11 +46,13 @@ with st.sidebar:
         "选择功能",
         [
             "🏠 首页",
+            "📄 简历上传",
+            "🎯 智能匹配",
+            "📝 手动匹配",
             "🔍 岗位搜索",
             "🏢 公司画像",
             "⚠️ 避坑指南",
             "📊 薪资行情",
-            "🎯 智能匹配",
             "✏️ 贡献数据",
             "🔄 数据同步",
             "👤 用户中心",
@@ -123,6 +127,314 @@ if page == "🏠 首页":
     
     with col3:
         st.error("### ⚠️ 避坑指南\n识别坑点特征，远离黑心公司")
+
+
+# ============================================================
+# Resume Upload
+# ============================================================
+
+elif page == "📄 简历上传":
+    st.header("📄 简历上传 - 智能匹配")
+    
+    # ⚠️ 隐私提示（醒目位置）
+    st.warning("""
+    🔒 **隐私保护提示**
+    
+    为保护您的隐私，请**不要上传包含以下信息的简历**：
+    - ❌ 真实姓名
+    - ❌ 手机号码
+    - ❌ 邮箱地址
+    - ❌ 身份证号
+    - ❌ 家庭住址
+    
+    ✅ **建议**：使用只包含技能、经验、教育背景的简历版本
+    """)
+    
+    st.divider()
+    
+    # 上传区域
+    uploaded_file = st.file_uploader(
+        "选择简历文件",
+        type=["pdf", "docx"],
+        help="支持 PDF、DOCX 格式",
+    )
+    
+    if uploaded_file:
+        st.success(f"✅ 已选择文件: {uploaded_file.name}")
+        
+        # 解析简历
+        with st.spinner("正在解析简历..."):
+            try:
+                # 解析文件
+                text = resume_parser.parse_uploaded_file(uploaded_file)
+                
+                # 隐私过滤
+                filtered_text = privacy_filter.filter(text)
+                
+                # 扫描隐私信息
+                privacy_scan = privacy_filter.scan(text)
+                if privacy_scan:
+                    st.warning(f"⚠️ 检测到隐私信息已自动过滤: {', '.join(privacy_scan.keys())}")
+                
+                # 提取信息
+                profile = resume_extractor.extract(filtered_text)
+                
+                st.success("✅ 简历解析完成！")
+                
+            except Exception as e:
+                st.error(f"❌ 简历解析失败: {e}")
+                profile = None
+        
+        if profile:
+            st.divider()
+            
+            # 预览提取结果
+            st.subheader("📋 提取结果预览")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.write(f"**当前职位**: {profile.current_title or '未识别'}")
+                st.write(f"**工作年限**: {profile.experience_years} 年")
+                st.write(f"**最高学历**: {profile.education or '未识别'}")
+            
+            with col2:
+                skills = profile.skills or []
+                if skills:
+                    st.write(f"**技能** ({len(skills)} 项):")
+                    # 显示技能标签
+                    skills_text = " ".join([f"`{s}`" for s in skills[:15]])
+                    st.markdown(skills_text)
+                    if len(skills) > 15:
+                        st.caption(f"...还有 {len(skills) - 15} 项技能")
+                else:
+                    st.write("**技能**: 未识别")
+            
+            # 证书
+            if profile.certifications:
+                st.write(f"**证书**: {', '.join(profile.certifications)}")
+            
+            st.divider()
+            
+            # 用户确认/修改
+            st.subheader("✏️ 确认/修改信息")
+            
+            with st.form("confirm_profile"):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    current_title = st.text_input(
+                        "当前职位",
+                        value=profile.current_title or "",
+                        placeholder="如：后端工程师"
+                    )
+                    experience_years = st.number_input(
+                        "工作年限",
+                        min_value=0,
+                        max_value=50,
+                        value=profile.experience_years,
+                    )
+                    education = st.selectbox(
+                        "最高学历",
+                        ["大专", "本科", "硕士", "博士"],
+                        index=["大专", "本科", "硕士", "博士"].index(profile.education) if profile.education in ["大专", "本科", "硕士", "博士"] else 1,
+                    )
+                
+                with col2:
+                    skills_input = st.text_input(
+                        "技能 (逗号分隔)",
+                        value=", ".join(profile.skills) if profile.skills else "",
+                        placeholder="Python, Java, Go"
+                    )
+                    desired_salary = st.slider("期望薪资 (K)", 0, 100, 30)
+                    location = st.text_input("期望地点", placeholder="北京")
+                    prefer_remote = st.checkbox("接受远程办公")
+                
+                st.info("💡 请确认以上信息是否准确，您可以在此修改")
+                
+                if st.form_submit_button("🎯 开始匹配", type="primary"):
+                    # 创建用户档案
+                    import hashlib
+                    
+                    user_id = hashlib.md5(
+                        f"{user_manager.device_id}_resume".encode()
+                    ).hexdigest()[:16]
+                    
+                    user = UserProfile(
+                        id=user_id,
+                        current_title=current_title,
+                        experience_years=experience_years,
+                        education=education,
+                        skills=[s.strip() for s in skills_input.split(",") if s.strip()],
+                        desired_salary_min=desired_salary * 1000 * 0.8 if desired_salary > 0 else None,
+                        desired_salary_max=desired_salary * 1000 * 1.2 if desired_salary > 0 else None,
+                        desired_locations=[location] if location else [],
+                        prefer_remote=prefer_remote,
+                    )
+                    
+                    # 保存用户档案
+                    job_manager.create_user_profile(user)
+                    
+                    # 执行匹配
+                    with st.spinner("正在匹配岗位..."):
+                        result = job_matcher.match_by_profile(user_id, limit=20)
+                    
+                    if result.matches:
+                        st.success(f"✅ 为你找到 {len(result.matches)} 个匹配岗位")
+                        
+                        # 显示匹配结果
+                        for match in result.matches:
+                            score = match.get("total_score", 0)
+                            risk = match.get("company_risk", "medium")
+                            
+                            if score >= 0.7:
+                                score_color = "green"
+                            elif score >= 0.5:
+                                score_color = "orange"
+                            else:
+                                score_color = "red"
+                            
+                            risk_color = "green" if risk == "low" else "orange" if risk == "medium" else "red"
+                            
+                            with st.expander(f"{match.get('job_title', '')} @ {match.get('company_name', '')}"):
+                                col1, col2, col3 = st.columns(3)
+                                
+                                with col1:
+                                    salary_min = match.get('salary_min', 0) or 0
+                                    salary_max = match.get('salary_max', 0) or 0
+                                    st.write(f"**薪资**: {salary_min/1000:.0f}-{salary_max/1000:.0f}K")
+                                    st.write(f"**地点**: {match.get('location', '')}")
+                                
+                                with col2:
+                                    st.markdown(f"**匹配度**: :{score_color}[{score:.0%}]")
+                                    st.markdown(f"**公司风险**: :{risk_color}[{risk}]")
+                                
+                                with col3:
+                                    matched_skills = match.get("matched_skills", 0)
+                                    st.write(f"**技能匹配**: {matched_skills}项")
+                                
+                                if risk in ["high", "blacklist"]:
+                                    st.warning("⚠️ 该公司存在风险，请谨慎考虑！")
+                        
+                        # 如果匹配结果较少，提示手动输入
+                        if result.need_manual_input:
+                            st.divider()
+                            st.info("💡 匹配结果较少？可以尝试手动输入职位信息获取更多匹配")
+                            if st.button("📝 手动输入职位信息"):
+                                st.session_state["page"] = "📝 手动匹配"
+                                st.rerun()
+                    else:
+                        st.warning("暂未找到匹配的岗位")
+                        st.info("💡 建议尝试手动输入职位信息进行匹配")
+                        if st.button("📝 手动输入职位信息", key="manual_btn"):
+                            st.session_state["page"] = "📝 手动匹配"
+                            st.rerun()
+    
+    else:
+        # 未上传文件时显示说明
+        st.info("""
+        **使用说明**：
+        1. 上传您的简历文件（PDF 或 DOCX 格式）
+        2. 系统自动解析简历内容
+        3. 确认提取的信息是否准确
+        4. 点击"开始匹配"获取推荐岗位
+        """)
+        
+        st.markdown("""
+        **支持的信息提取**：
+        - 🔧 技能（编程语言、框架、工具等）
+        - 📅 工作年限
+        - 🎓 教育背景
+        - 💼 当前职位
+        - 📜 专业证书
+        """)
+
+
+# ============================================================
+# Manual Match
+# ============================================================
+
+elif page == "📝 手动匹配":
+    st.header("🎯 手动职位匹配")
+    st.info("当简历匹配结果不理想时，可以手动输入期望职位信息进行匹配")
+    
+    st.divider()
+    
+    with st.form("manual_match_form"):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            job_title = st.text_input("期望职位", placeholder="如：后端工程师")
+            skills = st.text_input("技能 (逗号分隔)", placeholder="Python, Java, Go")
+            experience_years = st.number_input("工作年限", 0, 30, 3)
+        
+        with col2:
+            location = st.text_input("期望地点", placeholder="北京")
+            salary_min = st.slider("最低薪资 (K)", 0, 100, 20)
+            education = st.selectbox("学历", ["不限", "大专", "本科", "硕士", "博士"])
+        
+        submitted = st.form_submit_button("🎯 开始匹配", type="primary")
+    
+    if submitted:
+        if not job_title and not skills:
+            st.warning("请至少填写期望职位或技能")
+        else:
+            with st.spinner("正在匹配岗位..."):
+                result = job_matcher.match_by_manual_input(
+                    job_title=job_title if job_title else None,
+                    skills=[s.strip() for s in skills.split(",") if s.strip()] if skills else None,
+                    experience_years=experience_years,
+                    education=education if education != "不限" else None,
+                    location=location if location else None,
+                    salary_min=salary_min * 1000 if salary_min > 0 else None,
+                    limit=20,
+                )
+            
+            if result.matches:
+                st.success(f"✅ 为你找到 {len(result.matches)} 个匹配岗位")
+                
+                # 显示匹配结果
+                for match in result.matches:
+                    score = match.get("total_score", 0)
+                    risk = match.get("company_risk", "medium")
+                    
+                    if score >= 0.7:
+                        score_color = "green"
+                    elif score >= 0.5:
+                        score_color = "orange"
+                    else:
+                        score_color = "red"
+                    
+                    risk_color = "green" if risk == "low" else "orange" if risk == "medium" else "red"
+                    
+                    with st.expander(f"{match.get('job_title', '')} @ {match.get('company_name', '')}"):
+                        col1, col2, col3 = st.columns(3)
+                        
+                        with col1:
+                            salary_min_val = match.get('salary_min', 0) or 0
+                            salary_max_val = match.get('salary_max', 0) or 0
+                            st.write(f"**薪资**: {salary_min_val/1000:.0f}-{salary_max_val/1000:.0f}K")
+                            st.write(f"**地点**: {match.get('location', '')}")
+                        
+                        with col2:
+                            st.markdown(f"**匹配度**: :{score_color}[{score:.0%}]")
+                            st.markdown(f"**公司风险**: :{risk_color}[{risk}]")
+                        
+                        with col3:
+                            matched_skills = match.get("matched_skills", 0)
+                            st.write(f"**技能匹配**: {matched_skills}项")
+                        
+                        if risk in ["high", "blacklist"]:
+                            st.warning("⚠️ 该公司存在风险，请谨慎考虑！")
+            else:
+                st.warning("暂未找到匹配的岗位")
+                st.info("💡 建议尝试：")
+                st.markdown("""
+                - 调整期望职位关键词
+                - 减少筛选条件
+                - 扩大地点范围
+                - 降低薪资要求
+                """)
 
 
 # ============================================================
@@ -357,11 +669,13 @@ elif page == "🎯 智能匹配":
     
     st.info("填写你的信息，系统会为你推荐匹配的岗位")
     
+    # 隐私提示
+    st.warning("🔒 **隐私保护**：无需填写姓名、手机号等隐私信息")
+    
     with st.form("user_profile"):
         col1, col2 = st.columns(2)
         
         with col1:
-            name = st.text_input("姓名")
             current_title = st.text_input("当前职位")
             experience_years = st.number_input("工作年限", 0, 30, 3)
             education = st.selectbox("学历", ["大专", "本科", "硕士", "博士"])
@@ -373,30 +687,33 @@ elif page == "🎯 智能匹配":
             prefer_remote = st.checkbox("接受远程办公")
         
         if st.form_submit_button("开始匹配", type="primary"):
-            from src.jobgraph.models import UserProfile
             import hashlib
             
+            user_id = hashlib.md5(
+                f"{user_manager.device_id}_smart".encode()
+            ).hexdigest()[:16]
+            
             user = UserProfile(
-                id=hashlib.md5(name.encode()).hexdigest()[:16],
-                name=name,
+                id=user_id,
                 current_title=current_title,
                 experience_years=experience_years,
                 education=education,
                 skills=[s.strip() for s in skills.split(",") if s.strip()],
-                desired_salary_min=desired_salary * 1000 * 0.8,
-                desired_salary_max=desired_salary * 1000 * 1.2,
+                desired_salary_min=desired_salary * 1000 * 0.8 if desired_salary > 0 else None,
+                desired_salary_max=desired_salary * 1000 * 1.2 if desired_salary > 0 else None,
                 desired_locations=[location] if location else [],
                 prefer_remote=prefer_remote,
             )
             
             job_manager.create_user_profile(user)
             
-            matches = job_manager.find_matching_jobs(user.id, limit=20)
+            with st.spinner("正在匹配岗位..."):
+                result = job_matcher.match_by_profile(user_id, limit=20)
             
-            if matches:
-                st.subheader(f"为你推荐 {len(matches)} 个岗位")
+            if result.matches:
+                st.subheader(f"为你推荐 {len(result.matches)} 个岗位")
                 
-                for match in matches:
+                for match in result.matches:
                     score = match.get("total_score", 0)
                     risk = match.get("company_risk", "medium")
                     
@@ -413,7 +730,9 @@ elif page == "🎯 智能匹配":
                         col1, col2, col3 = st.columns(3)
                         
                         with col1:
-                            st.write(f"**薪资**: {match.get('salary_min', 0)/1000:.0f}-{match.get('salary_max', 0)/1000:.0f}K")
+                            salary_min = match.get('salary_min', 0) or 0
+                            salary_max = match.get('salary_max', 0) or 0
+                            st.write(f"**薪资**: {salary_min/1000:.0f}-{salary_max/1000:.0f}K")
                             st.write(f"**地点**: {match.get('location', '')}")
                         
                         with col2:
@@ -426,8 +745,20 @@ elif page == "🎯 智能匹配":
                         
                         if risk in ["high", "blacklist"]:
                             st.warning("⚠️ 该公司存在风险，请谨慎考虑！")
+                
+                # 如果匹配结果较少，提示手动输入
+                if result.need_manual_input:
+                    st.divider()
+                    st.info("💡 匹配结果较少？可以尝试手动输入职位信息获取更多匹配")
+                    if st.button("📝 手动输入职位信息"):
+                        st.session_state["page"] = "📝 手动匹配"
+                        st.rerun()
             else:
                 st.warning("暂未找到匹配的岗位")
+                st.info("💡 建议尝试手动输入职位信息进行匹配")
+                if st.button("📝 手动输入职位信息", key="smart_manual_btn"):
+                    st.session_state["page"] = "📝 手动匹配"
+                    st.rerun()
 
 
 # ============================================================

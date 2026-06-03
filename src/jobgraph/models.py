@@ -304,6 +304,39 @@ class MatchResult:
 
 
 @dataclass
+class ResumeProfile:
+    """简历解析结果（不含隐私信息）"""
+
+    id: str
+
+    # 基本信息（不含隐私）
+    current_title: str | None = None
+    experience_years: int = 0
+    education: str | None = None
+
+    # 技能
+    skills: list[str] = field(default_factory=list)
+    certifications: list[str] = field(default_factory=list)
+
+    # 工作经历
+    work_history: list[dict] = field(default_factory=list)
+
+    # 项目经验
+    projects: list[dict] = field(default_factory=list)
+
+    # 求职意向（可选）
+    desired_titles: list[str] = field(default_factory=list)
+    desired_locations: list[str] = field(default_factory=list)
+    desired_salary_min: float | None = None
+    desired_salary_max: float | None = None
+
+    # 元数据
+    source_file: str | None = None
+    parsed_at: datetime | None = None
+    privacy_filtered: bool = True
+
+
+@dataclass
 class SalaryData:
     """薪资数据."""
 

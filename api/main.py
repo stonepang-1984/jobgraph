@@ -10,6 +10,9 @@ from loguru import logger
 
 from config.settings import settings
 
+# Import routes
+from api.routes.resume import router as resume_router
+
 app = FastAPI(
     title="Multimodal Graph RAG API",
     description="API for multimodal knowledge graph construction and querying",
@@ -24,6 +27,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Register routes
+app.include_router(resume_router)
 
 
 class QueryRequest(BaseModel):
