@@ -98,5 +98,17 @@ update-data-force: ## Force update data
 update-status: ## Show data update status
 	python3 scripts/update_data.py --status
 
+sync-package: ## Import offline data package (usage: make sync-package FILE=path/to/package.zip)
+	python3 scripts/sync_data.py --mode package --input $(FILE)
+
+sync-tailscale: ## Sync via Tailscale (usage: make sync-tailscale SERVER=http://100.x.x.1:8000)
+	python3 scripts/sync_data.py --mode tailscale --server $(SERVER)
+
+sync-cloud: ## Sync via cloud server (usage: make sync-cloud URL=https://api.example.com)
+	python3 scripts/sync_data.py --mode cloud --url $(URL) --token $(TOKEN)
+
+sync-status: ## Show sync status
+	python3 scripts/sync_data.py --status
+
 jobgraph: ## Start JobGraph web UI (求职图谱)
 	streamlit run web/jobgraph.py --server.port 8504
