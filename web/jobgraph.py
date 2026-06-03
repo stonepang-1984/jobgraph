@@ -53,6 +53,7 @@ with st.sidebar:
             "⚠️ 避坑指南",
             "📊 薪资行情",
             "🎯 智能匹配",
+            "🔄 数据同步",
             "🔑 License",
         ],
     )
@@ -138,6 +139,203 @@ if page == "🏠 首页":
     
     with col3:
         st.error("### ⚠️ 避坑指南\n识别坑点特征，远离黑心公司")
+
+
+# ============================================================
+# Data Sync Page
+# ============================================================
+
+elif page == "🔄 数据同步":
+    st.header("🔄 数据同步")
+    
+    st.info("从数据中心同步最新的公司、岗位、评价数据")
+    
+    # 同步模式选择
+    sync_mode = st.radio(
+        "选择同步模式",
+        ["📦 离线数据包", "🌐 Tailscale 直连", "☁️ 云服务器"],
+        horizontal=True,
+    )
+    
+    st.divider()
+    
+    # 场景A: 离线数据包
+    if sync_mode == "📦 离线数据包":
+        st.subheader("📦 离线数据包导入")
+        
+        st.markdown("""
+        **使用场景**: 
+        - 不想安装额外软件
+        - 从数据管理员处获取数据包
+        
+        **操作步骤**:
+        1. 从数据管理员获取 `.zip` 数据包
+        2. 上传数据包
+        3. 点击导入
+        """)
+        
+        uploaded_file = st.file_uploader("上传数据包", type=["zip"])
+        
+        if uploaded_file and st.button("导入数据包", type="primary"):
+            with st.spinner("正在导入..."):
+                try:
+                    import tempfile
+                    import os
+                    
+                    # 保存上传文件
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
+                        tmp.write(uploaded_file.getbuffer())
+                        tmp_path = tmp.name
+                    
+                    # 导入
+                    from src.jobgraph.sync.data_sync import data_sync
+                    stats = data_sync.import_package(tmp_path)
+                    
+                    # 清理
+                    os.unlink(tmp_path)
+                    
+                    st.success("✅ 数据包导入成功！")
+                    st.json(stats)
+                    
+                except Exception as e:
+                    st.error(f"导入失败: {e}")
+    
+    # 场景B: Tailscale 直连
+    elif sync_mode == "🌐 Tailscale 直连":
+        st.subheader("🌐 Tailscale 直连同步")
+        
+        st.markdown("""
+        **使用场景**: 
+        - 数据中心已部署 Tailscale
+        - 需要实时同步数据
+        
+        **前置条件**:
+        1. 安装 Tailscale: https://tailscale.com/download
+        2. 加入数据中心的 Tailscale 网络
+        3. 获取数据中心的 Tailscale IP
+        """)
+        
+        tailscale_url = st.text_input(
+            "数据中心地址",
+            placeholder="http://100.x.x.1:8000",
+            help="输入数据中心的 Tailscale IP 和端口",
+        )
+        
+        token = st.text_input("认证 Token (可选)", type="password", help="付费用户请输入 Token")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("测试连接"):
+                if tailscale_url:
+                    with st.spinner("测试中..."):
+                        try:
+                            import httpx
+                            response = httpx.get(f"{tailscale_url}/api/v1/status", timeout=5)
+                            if response.status_code == 200:
+                                st.success("✅ 连接成功！")
+                                st.json(response.json())
+                            else:
+                                st.error(f"连接失败: {response.status_code}")
+                        except Exception as e:
+                            st.error(f"连接失败: {e}")
+                else:
+                    st.warning("请输入数据中心地址")
+        
+        with col2:
+            if st.button("立即同步", type="primary"):
+                if tailscale_url:
+                    with st.spinner("同步中..."):
+                        try:
+                            from src.jobgraph.sync.data_sync import data_sync
+                            stats = data_sync.sync_via_tailscale(tailscale_url, token or None)
+                            st.success("✅ 同步完成！")
+                            st.json(stats)
+                        except Exception as e:
+                            st.error(f"同步失败: {e}")
+                else:
+                    st.warning("请输入数据中心地址")
+    
+    # 场景C: 云服务器
+    elif sync_mode == "☁️ 云服务器":
+        st.subheader("☁️ 云服务器同步")
+        
+        st.markdown("""
+        **使用场景**: 
+        - 数据中心已迁移到云服务器
+        - 标准 API 接口
+        """)
+        
+        cloud_url = st.text_input("云服务器地址", placeholder="https://api.jobgraph.com")
+        token = st.text_input("认证 Token", type="password", help="付费用户请输入 Token")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("测试连接", key="test_cloud"):
+                if cloud_url:
+                    with st.spinner("测试中..."):
+                        try:
+                            import httpx
+                            response = httpx.get(f"{cloud_url}/api/v1/status", timeout=5)
+                            if response.status_code == 200:
+                                st.success("✅ 连接成功！")
+                                st.json(response.json())
+                            else:
+                                st.error(f"连接失败: {response.status_code}")
+                        except Exception as e:
+                            st.error(f"连接失败: {e}")
+                else:
+                    st.warning("请输入云服务器地址")
+        
+        with col2:
+            if st.button("立即同步", type="primary", key="sync_cloud"):
+                if cloud_url:
+                    with st.spinner("同步中..."):
+                        try:
+                            from src.jobgraph.sync.data_sync import data_sync
+                            stats = data_sync.sync_via_cloud(cloud_url, token or None)
+                            st.success("✅ 同步完成！")
+                            st.json(stats)
+                        except Exception as e:
+                            st.error(f"同步失败: {e}")
+                else:
+                    st.warning("请输入云服务器地址")
+    
+    st.divider()
+    
+    # 同步状态
+    st.subheader("📊 同步状态")
+    
+    try:
+        from src.jobgraph.sync.data_sync import data_sync
+        status = data_sync.get_status()
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("同步模式", status.get("mode", "未设置"))
+        
+        with col2:
+            st.metric("数据版本", status.get("version", "未知"))
+        
+        with col3:
+            last_sync = status.get("last_sync", "从未同步")
+            if last_sync and last_sync != "从未同步":
+                last_sync = last_sync[:19]  # 截取日期时间
+            st.metric("最后同步", last_sync)
+        
+        # 数据量
+        counts = status.get("counts", {})
+        if counts:
+            st.write("**数据量**:")
+            cols = st.columns(len(counts))
+            for i, (key, value) in enumerate(counts.items()):
+                with cols[i]:
+                    st.metric(key, value)
+                    
+    except Exception as e:
+        st.warning(f"获取同步状态失败: {e}")
 
 
 # ============================================================
