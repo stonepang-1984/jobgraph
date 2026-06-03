@@ -92,6 +92,9 @@ crawl-data: ## Crawl data from public sources
 import-data: ## Import crawled data to Neo4j
 	python3 scripts/import_to_neo4j.py
 
+import-fusion: ## Import data with fusion (dedup, quality check)
+	python3 scripts/import_with_fusion.py
+
 update-data: ## Update data (incremental)
 	python3 scripts/update_data.py
 
