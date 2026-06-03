@@ -201,6 +201,7 @@ class UserManager:
             "reviews": 10,
             "pitfalls": 15,
             "salaries": 5,
+            "jobs": 8,
         }
         self.add_points(points_map.get(contribution_type, 5), f"贡献{contribution_type}")
 

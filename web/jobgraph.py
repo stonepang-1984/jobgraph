@@ -455,7 +455,7 @@ elif page == "✏️ 贡献数据":
     
     st.divider()
     
-    tab1, tab2, tab3 = st.tabs(["提交评价", "提交坑点", "提交薪资"])
+    tab1, tab2, tab3, tab4 = st.tabs(["提交评价", "提交坑点", "提交薪资", "提交职位"])
     
     with tab1:
         st.subheader("提交员工评价")
@@ -609,6 +609,66 @@ elif page == "✏️ 贡献数据":
                                 
                                 if result["success"]:
                                     st.success(f"✅ 薪资信息已提交！获得 5 积分")
+                                else:
+                                    st.error(f"提交失败: {result['error']}")
+                            else:
+                                st.warning("请填写职位名称")
+    
+    with tab4:
+        st.subheader("提交职位信息")
+        
+        company_query_job = st.text_input("搜索公司", placeholder="输入公司名称", key="job_company")
+        
+        if company_query_job:
+            companies = job_manager.search_companies(company_query_job)
+            if companies:
+                company_options = [c.get("c", {}).get("name", "") for c in companies]
+                selected_company = st.selectbox("选择公司", company_options, key="job_select")
+                
+                company_id = None
+                for c in companies:
+                    if c.get("c", {}).get("name") == selected_company:
+                        company_id = c.get("c", {}).get("id")
+                        break
+                
+                if company_id:
+                    with st.form("job_form"):
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            job_title = st.text_input("职位名称 *", placeholder="后端工程师")
+                            location = st.text_input("工作地点", placeholder="北京")
+                            salary_min = st.number_input("最低薪资 (K)", 0, 200, 20)
+                            salary_max = st.number_input("最高薪资 (K)", 0, 200, 40)
+                        
+                        with col2:
+                            experience_years = st.number_input("工作年限要求", 0, 30, 3)
+                            education = st.selectbox("学历要求", ["不限", "大专", "本科", "硕士", "博士"])
+                            skills = st.text_input("技能要求 (逗号分隔)", placeholder="Java, Python, MySQL")
+                            benefits = st.text_input("福利待遇 (逗号分隔)", placeholder="五险一金, 年终奖")
+                        
+                        description = st.text_area("职位描述", placeholder="请描述职位职责和要求...")
+                        
+                        if st.form_submit_button("提交职位", type="primary"):
+                            if job_title:
+                                from src.jobgraph.user.contribution import contribution_manager
+                                
+                                result = contribution_manager.submit_job(
+                                    company_id=company_id,
+                                    company_name=selected_company,
+                                    title=job_title,
+                                    location=location,
+                                    salary_min=salary_min * 1000 if salary_min > 0 else None,
+                                    salary_max=salary_max * 1000 if salary_max > 0 else None,
+                                    experience_years=experience_years,
+                                    education=education if education != "不限" else None,
+                                    skills=[s.strip() for s in skills.split(",") if s.strip()],
+                                    description=description,
+                                    benefits=[b.strip() for b in benefits.split(",") if b.strip()],
+                                )
+                                
+                                if result["success"]:
+                                    st.success(f"✅ 职位已提交！获得 8 积分")
                                 else:
                                     st.error(f"提交失败: {result['error']}")
                             else:
