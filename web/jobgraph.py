@@ -17,6 +17,7 @@ from src.jobgraph.graph_manager import job_manager
 from src.jobgraph.models import CompanySize
 from src.jobgraph.license.manager import license_manager
 from src.jobgraph.config import get_edition_info, get_upgrade_info
+from src.jobgraph.user.manager import user_manager
 
 
 # ============================================================
@@ -53,7 +54,9 @@ with st.sidebar:
             "⚠️ 避坑指南",
             "📊 薪资行情",
             "🎯 智能匹配",
+            "✏️ 贡献数据",
             "🔄 数据同步",
+            "👤 用户中心",
             "🔑 License",
         ],
     )
@@ -81,6 +84,11 @@ with st.sidebar:
     st.success("🔒 **私密模式**\n\n数据仅存在本地")
     
     st.divider()
+    
+    # User info
+    user_stats = user_manager.get_user_stats()
+    st.markdown(f"👤 **{user_stats['nickname']}**")
+    st.caption(f"等级: Lv.{user_stats['level']} | 积分: {user_stats['points']}")
     
     # Statistics
     st.header("📊 数据统计")
@@ -139,6 +147,262 @@ if page == "🏠 首页":
     
     with col3:
         st.error("### ⚠️ 避坑指南\n识别坑点特征，远离黑心公司")
+
+
+# ============================================================
+# Contribution Page
+# ============================================================
+
+elif page == "✏️ 贡献数据":
+    st.header("✏️ 贡献数据")
+    
+    st.info("帮助其他求职者了解公司真实情况，提交你的评价和坑点")
+    
+    # 用户贡献统计
+    user_stats = user_manager.get_user_stats()
+    contributions = user_stats.get("contributions", {})
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("等级", f"Lv.{user_stats['level']}")
+    with col2:
+        st.metric("积分", user_stats['points'])
+    with col3:
+        st.metric("评价", contributions.get('reviews', 0))
+    with col4:
+        st.metric("坑点", contributions.get('pitfalls', 0))
+    
+    st.divider()
+    
+    tab1, tab2, tab3 = st.tabs(["提交评价", "提交坑点", "提交薪资"])
+    
+    with tab1:
+        st.subheader("提交员工评价")
+        
+        company_query = st.text_input("搜索公司", placeholder="输入公司名称", key="review_company")
+        
+        if company_query:
+            companies = job_manager.search_companies(company_query)
+            if companies:
+                company_options = [c.get("c", {}).get("name", "") for c in companies]
+                selected_company = st.selectbox("选择公司", company_options)
+                
+                company_id = None
+                for c in companies:
+                    if c.get("c", {}).get("name") == selected_company:
+                        company_id = c.get("c", {}).get("id")
+                        break
+                
+                if company_id:
+                    with st.form("review_form"):
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            overall_rating = st.slider("综合评分", 1.0, 5.0, 3.0, 0.1)
+                            salary_rating = st.slider("薪资评分", 1.0, 5.0, 3.0, 0.1)
+                            work_life_rating = st.slider("工作生活平衡", 1.0, 5.0, 3.0, 0.1)
+                        
+                        with col2:
+                            management_rating = st.slider("管理评分", 1.0, 5.0, 3.0, 0.1)
+                            reviewer_title = st.text_input("你的职位", placeholder="工程师")
+                            reviewer_tenure = st.selectbox("在职时长", ["不到1年", "1-2年", "2-3年", "3-5年", "5年以上"])
+                        
+                        title = st.text_input("评价标题", placeholder="一句话总结")
+                        pros = st.text_area("优点", placeholder="公司有什么好的地方？")
+                        cons = st.text_area("缺点", placeholder="公司有什么不好的地方？")
+                        
+                        pitfall_options = ["996", "PUA", "内卷", "欠薪", "裁员", "画饼", "克扣"]
+                        selected_pitfalls = st.multiselect("坑点标签（可选）", pitfall_options)
+                        
+                        if st.form_submit_button("提交评价", type="primary"):
+                            if pros and cons:
+                                from src.jobgraph.user.contribution import contribution_manager
+                                
+                                result = contribution_manager.submit_review(
+                                    company_id=company_id,
+                                    overall_rating=overall_rating,
+                                    pros=pros,
+                                    cons=cons,
+                                    title=title,
+                                    salary_rating=salary_rating,
+                                    work_life_rating=work_life_rating,
+                                    management_rating=management_rating,
+                                    reviewer_title=reviewer_title,
+                                    reviewer_tenure=reviewer_tenure,
+                                    pitfall_tags=selected_pitfalls,
+                                )
+                                
+                                if result["success"]:
+                                    st.success(f"✅ 评价已提交！获得 10 积分")
+                                else:
+                                    st.error(f"提交失败: {result['error']}")
+                            else:
+                                st.warning("请填写优点和缺点")
+    
+    with tab2:
+        st.subheader("提交坑点")
+        
+        company_query_pitfall = st.text_input("搜索公司", placeholder="输入公司名称", key="pitfall_company")
+        
+        if company_query_pitfall:
+            companies = job_manager.search_companies(company_query_pitfall)
+            if companies:
+                company_options = [c.get("c", {}).get("name", "") for c in companies]
+                selected_company = st.selectbox("选择公司", company_options, key="pitfall_select")
+                
+                company_id = None
+                for c in companies:
+                    if c.get("c", {}).get("name") == selected_company:
+                        company_id = c.get("c", {}).get("id")
+                        break
+                
+                if company_id:
+                    with st.form("pitfall_form"):
+                        pitfall_type = st.selectbox("坑点类型", ["欠薪", "PUA", "996", "内卷", "裁员", "画饼", "克扣", "其他"])
+                        severity = st.slider("严重程度", 1, 5, 3)
+                        description = st.text_area("详细描述", placeholder="请详细描述坑点情况")
+                        evidence = st.text_area("证据来源（可选）", placeholder="如：脉脉评价、劳动仲裁等")
+                        
+                        if st.form_submit_button("提交坑点", type="primary"):
+                            if description:
+                                from src.jobgraph.user.contribution import contribution_manager
+                                
+                                result = contribution_manager.submit_pitfall(
+                                    company_id=company_id,
+                                    pitfall_type=pitfall_type,
+                                    description=description,
+                                    severity=severity,
+                                    evidence=evidence,
+                                )
+                                
+                                if result["success"]:
+                                    st.success(f"✅ 坑点已提交！获得 15 积分")
+                                else:
+                                    st.error(f"提交失败: {result['error']}")
+                            else:
+                                st.warning("请填写详细描述")
+    
+    with tab3:
+        st.subheader("提交薪资信息")
+        
+        company_query_salary = st.text_input("搜索公司", placeholder="输入公司名称", key="salary_company")
+        
+        if company_query_salary:
+            companies = job_manager.search_companies(company_query_salary)
+            if companies:
+                company_options = [c.get("c", {}).get("name", "") for c in companies]
+                selected_company = st.selectbox("选择公司", company_options, key="salary_select")
+                
+                company_id = None
+                for c in companies:
+                    if c.get("c", {}).get("name") == selected_company:
+                        company_id = c.get("c", {}).get("id")
+                        break
+                
+                if company_id:
+                    with st.form("salary_form"):
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            job_title = st.text_input("职位名称", placeholder="后端工程师")
+                            salary_min = st.number_input("最低薪资 (K)", 0, 200, 20)
+                        
+                        with col2:
+                            experience_years = st.number_input("工作年限", 0, 30, 3)
+                            salary_max = st.number_input("最高薪资 (K)", 0, 200, 40)
+                        
+                        education = st.selectbox("学历", ["大专", "本科", "硕士", "博士"])
+                        
+                        if st.form_submit_button("提交薪资", type="primary"):
+                            if job_title:
+                                from src.jobgraph.user.contribution import contribution_manager
+                                
+                                result = contribution_manager.submit_salary(
+                                    company_id=company_id,
+                                    job_title=job_title,
+                                    salary_min=salary_min * 1000,
+                                    salary_max=salary_max * 1000,
+                                    experience_years=experience_years,
+                                    education=education,
+                                )
+                                
+                                if result["success"]:
+                                    st.success(f"✅ 薪资信息已提交！获得 5 积分")
+                                else:
+                                    st.error(f"提交失败: {result['error']}")
+                            else:
+                                st.warning("请填写职位名称")
+
+
+# ============================================================
+# User Center Page
+# ============================================================
+
+elif page == "👤 用户中心":
+    st.header("👤 用户中心")
+    
+    user_stats = user_manager.get_user_stats()
+    
+    # 用户信息卡片
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("基本信息")
+        st.write(f"**昵称**: {user_stats['nickname']}")
+        st.write(f"**设备ID**: {user_stats['device_id']}")
+        st.write(f"**等级**: Lv.{user_stats['level']}")
+        st.write(f"**积分**: {user_stats['points']}")
+        st.write(f"**登录状态**: {'已登录' if user_stats['is_logged_in'] else '未登录'}")
+    
+    with col2:
+        st.subheader("贡献统计")
+        contributions = user_stats.get("contributions", {})
+        st.write(f"**评价**: {contributions.get('reviews', 0)} 条")
+        st.write(f"**坑点**: {contributions.get('pitfalls', 0)} 条")
+        st.write(f"**薪资**: {contributions.get('salaries', 0)} 条")
+    
+    st.divider()
+    
+    # 设置
+    st.subheader("设置")
+    
+    new_nickname = st.text_input("修改昵称", value=user_stats['nickname'])
+    if st.button("保存昵称"):
+        user_manager.set_nickname(new_nickname)
+        st.success("昵称已更新")
+        st.rerun()
+    
+    st.divider()
+    
+    # 登录/登出
+    st.subheader("账号")
+    
+    if user_stats['is_logged_in']:
+        st.success("✅ 已登录")
+        if st.button("登出"):
+            user_manager.logout()
+            st.success("已登出")
+            st.rerun()
+    else:
+        st.info("未登录 - 登录后可同步数据、参与社区")
+        
+        login_method = st.radio("登录方式", ["设备码", "邀请码"])
+        
+        if login_method == "设备码":
+            st.code(user_manager.device_id)
+            st.caption("使用设备码登录，数据可同步到其他设备")
+            if st.button("使用设备码登录"):
+                if user_manager.login_with_device_code(user_manager.device_id):
+                    st.success("登录成功")
+                    st.rerun()
+        else:
+            invite_code = st.text_input("邀请码", type="password")
+            if st.button("使用邀请码登录"):
+                if user_manager.login_with_invite_code(invite_code):
+                    st.success("登录成功")
+                    st.rerun()
+                else:
+                    st.error("邀请码无效")
 
 
 # ============================================================
