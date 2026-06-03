@@ -476,38 +476,35 @@ class JobGraphManager:
 
     def get_stats(self) -> dict:
         """获取图谱统计."""
-        # 使用独立查询避免标签不存在的警告
-        stats = {}
+        stats = {"companies": 0, "jobs": 0, "reviews": 0, "pitfalls": 0, "users": 0}
         
+        # 先获取所有存在的标签
         try:
-            result = neo4j_client.execute_query("MATCH (c:Company) RETURN count(c) AS cnt")
-            stats["companies"] = result[0]["cnt"] if result else 0
+            labels_result = neo4j_client.execute_query("CALL db.labels()")
+            existing_labels = {r["label"] for r in labels_result}
         except Exception:
-            stats["companies"] = 0
+            existing_labels = set()
         
-        try:
-            result = neo4j_client.execute_query("MATCH (j:Job) RETURN count(j) AS cnt")
-            stats["jobs"] = result[0]["cnt"] if result else 0
-        except Exception:
-            stats["jobs"] = 0
+        # 只查询存在的标签
+        label_queries = {
+            "companies": "Company",
+            "jobs": "Job",
+            "reviews": "Review",
+            "pitfalls": "Pitfall",
+            "users": "UserProfile",
+        }
         
-        try:
-            result = neo4j_client.execute_query("MATCH (r:Review) RETURN count(r) AS cnt")
-            stats["reviews"] = result[0]["cnt"] if result else 0
-        except Exception:
-            stats["reviews"] = 0
-        
-        try:
-            result = neo4j_client.execute_query("MATCH (p:Pitfall) RETURN count(p) AS cnt")
-            stats["pitfalls"] = result[0]["cnt"] if result else 0
-        except Exception:
-            stats["pitfalls"] = 0
-        
-        try:
-            result = neo4j_client.execute_query("MATCH (u:UserProfile) RETURN count(u) AS cnt")
-            stats["users"] = result[0]["cnt"] if result else 0
-        except Exception:
-            stats["users"] = 0
+        for stat_name, label in label_queries.items():
+            if label in existing_labels:
+                try:
+                    result = neo4j_client.execute_query(
+                        f"MATCH (n:{label}) RETURN count(n) AS cnt"
+                    )
+                    stats[stat_name] = result[0]["cnt"] if result else 0
+                except Exception:
+                    stats[stat_name] = 0
+            else:
+                stats[stat_name] = 0
         
         return stats
 
