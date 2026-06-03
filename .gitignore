@@ -92,4 +92,8 @@ src/jobgraph/pro/__pycache__/
 
 # 管理员工具
 admin_tools/
+
+# 临时文档
 docs/csdn_*
+docs/temp_*
+docs/draft_*
