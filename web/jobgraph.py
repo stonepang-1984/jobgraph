@@ -1377,28 +1377,6 @@ elif page == "⚙️ LLM 配置":
                     help="如 gpt-4o, gpt-3.5-turbo, deepseek-chat 等"
                 )
             
-            # 常用 API 预设
-            st.write("**快速设置**：")
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                if st.button("OpenAI 官方"):
-                    openai_base = "https://api.openai.com/v1"
-                    openai_model = "gpt-4o"
-                    st.rerun()
-            
-            with col2:
-                if st.button("DeepSeek"):
-                    openai_base = "https://api.deepseek.com/v1"
-                    openai_model = "deepseek-chat"
-                    st.rerun()
-            
-            with col3:
-                if st.button("Moonshot"):
-                    openai_base = "https://api.moonshot.cn/v1"
-                    openai_model = "moonshot-v1-8k"
-                    st.rerun()
-            
             if st.form_submit_button("💾 保存配置", type="primary"):
                 if openai_key and openai_key != "sk-your-openai-api-key":
                     success = config_manager.save_llm_config(
@@ -1414,6 +1392,37 @@ elif page == "⚙️ LLM 配置":
                         st.error("❌ 保存失败")
                 else:
                     st.warning("请输入有效的 API Key")
+        
+        # 常用 API 预设（在表单外面）
+        st.write("**快速设置**：")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if st.button("OpenAI 官方"):
+                config_manager.save_llm_config(
+                    provider="openai",
+                    openai_api_base="https://api.openai.com/v1",
+                    openai_model="gpt-4o",
+                )
+                st.rerun()
+        
+        with col2:
+            if st.button("DeepSeek"):
+                config_manager.save_llm_config(
+                    provider="openai",
+                    openai_api_base="https://api.deepseek.com/v1",
+                    openai_model="deepseek-chat",
+                )
+                st.rerun()
+        
+        with col3:
+            if st.button("Moonshot"):
+                config_manager.save_llm_config(
+                    provider="openai",
+                    openai_api_base="https://api.moonshot.cn/v1",
+                    openai_model="moonshot-v1-8k",
+                )
+                st.rerun()
     
     else:  # Ollama
         st.subheader("本地 Ollama 配置")
