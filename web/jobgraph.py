@@ -19,6 +19,7 @@ from src.jobgraph.models import CompanySize, UserProfile
 from src.jobgraph.user.manager import user_manager
 from src.jobgraph.resume import resume_parser, resume_extractor, privacy_filter, resume_optimizer
 from src.jobgraph.matching import job_matcher
+from src.jobgraph.config_manager import config_manager
 
 
 # ============================================================
@@ -56,6 +57,7 @@ with st.sidebar:
             "✏️ 贡献数据",
             "🔄 数据同步",
             "👤 用户中心",
+            "⚙️ LLM 配置",
         ],
     )
     
@@ -145,6 +147,18 @@ elif page == "📄 简历上传":
     - 👤 匹配只用技能、经验，不用姓名手机号
     - 🛡️ 即使包含隐私信息，也绝不会被传出去
     """)
+    
+    # LLM 配置状态提示
+    if not config_manager.is_llm_configured():
+        st.warning("""
+        ⚠️ **AI 智能解析未启用**
+        
+        当前使用规则模式解析简历，精度有限。
+        配置 LLM 后可大幅提升解析精度。
+        """)
+        if st.button("⚙️ 前往配置 LLM"):
+            st.session_state["page"] = "⚙️ LLM 配置"
+            st.rerun()
     
     # 补充建议
     st.info("""
@@ -1295,6 +1309,195 @@ elif page == "🔄 数据同步":
                         st.error(f"同步失败: {e}")
             else:
                 st.warning("请输入云服务器地址")
+
+
+# ============================================================
+# LLM Configuration
+# ============================================================
+
+elif page == "⚙️ LLM 配置":
+    st.header("⚙️ LLM 配置")
+    
+    # 当前状态
+    is_configured = config_manager.is_llm_configured()
+    
+    if is_configured:
+        st.success("✅ LLM 已配置 - 简历解析将使用 AI 智能提取")
+    else:
+        st.warning("⚠️ LLM 未配置 - 简历解析使用规则模式（精度有限）")
+    
+    st.divider()
+    
+    # 获取当前配置
+    llm_config = config_manager.get_llm_config()
+    
+    # 选择提供商
+    provider = st.radio(
+        "选择 LLM 提供商",
+        ["OpenAI API", "本地 Ollama"],
+        horizontal=True,
+    )
+    
+    if provider == "OpenAI API":
+        st.subheader("OpenAI API 配置")
+        
+        st.info("""
+        **获取 API Key**：
+        1. 访问 https://platform.openai.com/api-keys
+        2. 创建新的 API Key
+        3. 复制并粘贴到下方
+        
+        **兼容 API**：
+        - 支持 OpenAI 兼容的第三方 API（如 DeepSeek、Moonshot 等）
+        - 只需修改 API Base URL 和 Model 名称
+        """)
+        
+        with st.form("openai_config"):
+            openai_key = st.text_input(
+                "API Key *",
+                value=llm_config.get("openai_api_key", ""),
+                type="password",
+                placeholder="sk-xxxxxxxxxxxxxxxx",
+                help="OpenAI API Key 或兼容 API 的 Key"
+            )
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                openai_base = st.text_input(
+                    "API Base URL",
+                    value=llm_config.get("openai_api_base", "https://api.openai.com/v1"),
+                    help="OpenAI 或兼容 API 的地址"
+                )
+            
+            with col2:
+                openai_model = st.text_input(
+                    "模型名称",
+                    value=llm_config.get("openai_model", "gpt-4o"),
+                    help="如 gpt-4o, gpt-3.5-turbo, deepseek-chat 等"
+                )
+            
+            # 常用 API 预设
+            st.write("**快速设置**：")
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                if st.button("OpenAI 官方"):
+                    openai_base = "https://api.openai.com/v1"
+                    openai_model = "gpt-4o"
+                    st.rerun()
+            
+            with col2:
+                if st.button("DeepSeek"):
+                    openai_base = "https://api.deepseek.com/v1"
+                    openai_model = "deepseek-chat"
+                    st.rerun()
+            
+            with col3:
+                if st.button("Moonshot"):
+                    openai_base = "https://api.moonshot.cn/v1"
+                    openai_model = "moonshot-v1-8k"
+                    st.rerun()
+            
+            if st.form_submit_button("💾 保存配置", type="primary"):
+                if openai_key and openai_key != "sk-your-openai-api-key":
+                    success = config_manager.save_llm_config(
+                        provider="openai",
+                        openai_api_key=openai_key,
+                        openai_api_base=openai_base,
+                        openai_model=openai_model,
+                    )
+                    if success:
+                        st.success("✅ 配置已保存！重启服务后生效")
+                        st.rerun()
+                    else:
+                        st.error("❌ 保存失败")
+                else:
+                    st.warning("请输入有效的 API Key")
+    
+    else:  # Ollama
+        st.subheader("本地 Ollama 配置")
+        
+        st.info("""
+        **安装 Ollama**：
+        ```bash
+        # Linux/macOS
+        curl -fsSL https://ollama.com/install.sh | sh
+        
+        # 下载模型
+        ollama pull qwen2.5:14b
+        ```
+        
+        **推荐模型**：
+        - `qwen2.5:14b` - 中文效果好，需要 16GB 内存
+        - `qwen2.5:7b` - 轻量版，需要 8GB 内存
+        - `llama3:8b` - 英文效果好
+        """)
+        
+        with st.form("ollama_config"):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                ollama_url = st.text_input(
+                    "Ollama 服务地址",
+                    value=llm_config.get("ollama_base_url", "http://localhost:11434"),
+                    help="Ollama 服务的地址"
+                )
+            
+            with col2:
+                ollama_model = st.text_input(
+                    "模型名称",
+                    value=llm_config.get("ollama_model", "qwen2.5:14b"),
+                    help="已下载的模型名称"
+                )
+            
+            if st.form_submit_button("💾 保存配置", type="primary"):
+                success = config_manager.save_llm_config(
+                    provider="ollama",
+                    ollama_base_url=ollama_url,
+                    ollama_model=ollama_model,
+                )
+                if success:
+                    st.success("✅ 配置已保存！重启服务后生效")
+                    st.rerun()
+                else:
+                    st.error("❌ 保存失败")
+    
+    st.divider()
+    
+    # 测试连接
+    st.subheader("🧪 测试连接")
+    
+    if st.button("测试 LLM 连接"):
+        if not config_manager.is_llm_configured():
+            st.warning("请先配置 LLM")
+        else:
+            with st.spinner("正在测试连接..."):
+                try:
+                    from src.jobgraph.resume.extractor import resume_extractor
+                    
+                    # 重置 LLM 可用性缓存
+                    resume_extractor._llm_available = None
+                    
+                    # 测试提取
+                    test_text = "张三，5年Java开发经验，熟悉Spring Boot、MySQL、Redis"
+                    result = resume_extractor._extract_with_llm(test_text)
+                    
+                    st.success("✅ LLM 连接成功！")
+                    st.write(f"测试结果：识别到 {len(result.skills)} 个技能")
+                    st.write(f"技能: {result.skills}")
+                except Exception as e:
+                    st.error(f"❌ 连接失败: {e}")
+    
+    st.divider()
+    
+    # 隐私说明
+    st.info("""
+    🔒 **隐私说明**：
+    - API Key 仅保存在本地 `.env` 文件中
+    - 简历内容通过 API 发送到 LLM 服务进行解析
+    - 如果担心隐私，建议使用本地 Ollama
+    """)
 
 
 # ============================================================
