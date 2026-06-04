@@ -52,23 +52,57 @@ SKILL_KEYWORDS = {
     "数据仓库", "etl", "数据治理", "数据湖",
     # 移动开发
     "android", "ios", "react native", "flutter", "uniapp", "小程序",
+    # 网络与通信
+    "tcp/ip", "tcp", "ip", "udp", "http", "https", "dns", "dhcp", "arp",
+    "交换机", "路由器", "网络编程", "网络协议", "协议栈",
+    "snmp", "ssh", "telnet", "ftp", "smtp", "socket",
+    "vlan", "vpn", "nat", "acl", "qos", "stp", "rstp",
+    "rip", "ospf", "bgp", "mpls", "lldp", "ntp",
+    # 嵌入式与系统
+    "嵌入式", "嵌入式linux", "嵌入式系统", "arm", "mips", "risc-v",
+    "linux内核", "内核开发", "驱动开发", "bootloader",
+    "ucos", "freertos", "rtos", "vxworks",
+    "交叉编译", "交叉编译器", "gcc", "gdb", "makefile",
+    "shell脚本", "bash", "awk", "sed",
+    "busybox", "rootfs", "文件系统",
+    "syslog", "日志系统",
+    # Web与服务器
+    "web服务器", "nginx", "apache", "tomcat",
+    "cgi", "web界面", "web开发",
+    "tcp服务器", "socket编程",
+    # 数据库与存储
+    "底层数据库", "数据存储", "数据同步",
+    # 认证与安全
+    "用户认证", "安全认证", "radius", "tacacs", "ldap",
+    "ssl", "tls", "加密", "解密",
+    # 开发工具
+    "gcc", "gdb", "vim", "emacs", "vscode",
+    "git", "svn", "cvs", "svn",
+    "tcpdump", "wireshark", "抓包",
     # 其他技术
     "微服务", "分布式", "高并发", "高可用", "架构设计", "系统设计",
     "linux", "nginx", "git", "svn", "restful", "graphql", "grpc",
     "消息队列", "mq", "rabbitmq", "rocketmq",
+    "通信协议", "板间通信", "tipc",
+    "交换芯片", "芯片驱动", "驱动适配",
+    "软件升级", "热升级", "在线升级",
+    "cli", "命令行", "命令行界面",
 }
 
 
 class ResumeExtractor:
     """简历信息提取器"""
 
-    def __init__(self, use_llm: bool = True):
+    def __init__(self, use_llm: bool = True, llm_timeout: int = 10):
         """
         Args:
             use_llm: 是否使用 LLM 提取（需要配置 OpenAI API）
+            llm_timeout: LLM 调用超时时间（秒）
         """
         self.use_llm = use_llm
+        self.llm_timeout = llm_timeout
         self._llm = None
+        self._llm_available = None  # 缓存 LLM 可用性
 
     def extract(self, text: str) -> ExtractedProfile:
         """从简历文本提取结构化信息
@@ -85,7 +119,7 @@ class ResumeExtractor:
         logger.info("开始提取简历信息...")
 
         # 尝试 LLM 提取
-        if self.use_llm:
+        if self.use_llm and self._check_llm_available():
             try:
                 return self._extract_with_llm(text)
             except Exception as e:
@@ -94,8 +128,35 @@ class ResumeExtractor:
         # 规则提取
         return self._extract_with_rules(text)
 
+    def _check_llm_available(self) -> bool:
+        """检查 LLM 是否可用"""
+        if self._llm_available is not None:
+            return self._llm_available
+
+        try:
+            from config.settings import settings
+            api_key = settings.llm.openai_api_key
+            
+            # 检查 API Key 是否有效配置
+            if not api_key or api_key == "sk-your-openai-api-key" or len(api_key) < 10:
+                logger.info("OpenAI API Key 未配置，使用规则提取模式")
+                self._llm_available = False
+                return False
+            
+            self._llm_available = True
+            return True
+        except Exception as e:
+            logger.warning(f"检查 LLM 配置失败: {e}")
+            self._llm_available = False
+            return False
+
     def _extract_with_llm(self, text: str) -> ExtractedProfile:
-        """使用 LLM 提取信息"""
+        """使用 LLM 提取信息（带超时）"""
+        import signal
+        
+        def timeout_handler(signum, frame):
+            raise TimeoutError("LLM 调用超时")
+        
         try:
             from langchain_openai import ChatOpenAI
             from config.settings import settings
@@ -106,6 +167,7 @@ class ResumeExtractor:
                     api_key=settings.llm.openai_api_key,
                     base_url=settings.llm.openai_api_base,
                     temperature=0,
+                    request_timeout=self.llm_timeout,  # 设置请求超时
                 )
 
             prompt = """你是一个专业的简历解析专家。请从以下简历文本中提取结构化信息。
@@ -135,12 +197,24 @@ class ResumeExtractor:
                 ("human", prompt),
             ])
 
-            chain = chat_prompt | self._llm.with_structured_output(ExtractedProfile)
-            result = chain.invoke({"text": text[:4000]})  # 限制长度避免 token 超限
+            # 设置超时
+            old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(self.llm_timeout)
+            
+            try:
+                chain = chat_prompt | self._llm.with_structured_output(ExtractedProfile)
+                result = chain.invoke({"text": text[:4000]})  # 限制长度避免 token 超限
+                signal.alarm(0)  # 取消超时
+                logger.info(f"LLM 提取完成，识别到 {len(result.skills)} 个技能")
+                return result
+            finally:
+                signal.alarm(0)  # 确保取消超时
+                signal.signal(signal.SIGALRM, old_handler)
 
-            logger.info(f"LLM 提取完成，识别到 {len(result.skills)} 个技能")
-            return result
-
+        except TimeoutError:
+            logger.warning(f"LLM 提取超时 ({self.llm_timeout}s)，降级到规则提取")
+            self._llm_available = False  # 标记 LLM 不可用
+            return self._extract_with_rules(text)
         except ImportError:
             logger.warning("未安装 langchain_openai，使用规则提取")
             return self._extract_with_rules(text)
@@ -183,11 +257,22 @@ class ResumeExtractor:
         found_skills = []
 
         for skill in SKILL_KEYWORDS:
-            # 使用单词边界匹配
-            pattern = r'\b' + re.escape(skill.lower()) + r'\b'
-            if re.search(pattern, text_lower):
-                # 保留原始大小写
-                found_skills.append(skill)
+            skill_lower = skill.lower()
+            
+            # 判断是否为中文技能
+            is_chinese = any('\u4e00' <= c <= '\u9fff' for c in skill)
+            
+            if is_chinese:
+                # 中文技能直接匹配
+                if skill_lower in text_lower:
+                    found_skills.append(skill)
+            else:
+                # 英文技能使用单词边界匹配
+                pattern = r'\b' + re.escape(skill_lower) + r'\b'
+                if re.search(pattern, text_lower):
+                    found_skills.append(skill)
+
+        return sorted(list(set(found_skills)))
 
         return sorted(list(set(found_skills)))
 
@@ -205,21 +290,27 @@ class ResumeExtractor:
             if match:
                 return int(match.group(1))
 
-        # 模式2：从工作经历推算
-        year_pattern = r'(\d{4})\s*[-.至到]\s*(?:(\d{4})|至今|现在|present)'
-        matches = re.findall(year_pattern, text)
-
-        if matches:
-            years = []
+        # 模式2：从工作经历推算（支持多种日期格式）
+        # 支持: 2008/7-2013/2, 2008-2013, 2008年-2013年, 2008.7-2013.2
+        year_patterns = [
+            r'(\d{4})\s*[/年.]\s*\d{1,2}\s*[-.至到~]\s*(?:(\d{4})\s*[/年.]\s*\d{1,2}|至今|现在|present)',
+            r'(\d{4})\s*[-.至到~]\s*(?:(\d{4})|至今|现在|present)',
+        ]
+        
+        all_years = []
+        for year_pattern in year_patterns:
+            matches = re.findall(year_pattern, text, re.IGNORECASE)
             for match in matches:
                 start = int(match[0])
                 end = int(match[1]) if match[1] else datetime.now().year
-                years.append((start, end))
+                # 过滤掉不合理的年份
+                if 1990 <= start <= datetime.now().year and start <= end:
+                    all_years.append((start, end))
 
-            if years:
-                min_year = min(y[0] for y in years)
-                max_year = max(y[1] for y in years)
-                return max(0, max_year - min_year)
+        if all_years:
+            min_year = min(y[0] for y in all_years)
+            max_year = max(y[1] for y in all_years)
+            return max(0, max_year - min_year)
 
         return 0
 
