@@ -17,7 +17,7 @@ from loguru import logger
 from src.jobgraph.graph_manager import job_manager
 from src.jobgraph.models import CompanySize, UserProfile
 from src.jobgraph.user.manager import user_manager
-from src.jobgraph.resume import resume_parser, resume_extractor, privacy_filter
+from src.jobgraph.resume import resume_parser, resume_extractor, privacy_filter, resume_optimizer
 from src.jobgraph.matching import job_matcher
 
 
@@ -136,18 +136,19 @@ if page == "🏠 首页":
 elif page == "📄 简历上传":
     st.header("📄 简历上传 - 智能匹配")
     
-    # ⚠️ 隐私提示（醒目位置）
-    st.warning("""
-    🔒 **隐私保护提示**
+    # 🔒 隐私保护核心提示
+    st.success("""
+    🔒 **简历 100% 本地处理，绝不上传服务器**
     
-    为保护您的隐私，请**不要上传包含以下信息的简历**：
-    - ❌ 真实姓名
-    - ❌ 手机号码
-    - ❌ 邮箱地址
-    - ❌ 身份证号
-    - ❌ 家庭住址
+    - 💾 简历文件仅保存在你的电脑
+    - 🔐 解析过程在本地完成，内容不会传出
+    - 👤 匹配只用技能、经验，不用姓名手机号
+    - 🛡️ 即使包含隐私信息，也绝不会被传出去
+    """)
     
-    ✅ **建议**：使用只包含技能、经验、教育背景的简历版本
+    # 补充建议
+    st.info("""
+    💡 **建议**：虽然系统会自动过滤隐私信息，但为更安全起见，建议使用只包含技能、经验、教育背景的简历版本
     """)
     
     st.divider()
@@ -275,6 +276,17 @@ elif page == "📄 简历上传":
                     # 保存用户档案
                     job_manager.create_user_profile(user)
                     
+                    # 保存当前简历信息到 session
+                    st.session_state["current_profile"] = {
+                        "user_id": user_id,
+                        "current_title": current_title,
+                        "experience_years": experience_years,
+                        "education": education,
+                        "skills": [s.strip() for s in skills_input.split(",") if s.strip()],
+                        "work_history": profile.work_history if profile else [],
+                        "projects": profile.projects if profile else [],
+                    }
+                    
                     # 执行匹配
                     with st.spinner("正在匹配岗位..."):
                         result = job_matcher.match_by_profile(user_id, limit=20)
@@ -315,6 +327,119 @@ elif page == "📄 简历上传":
                                 
                                 if risk in ["high", "blacklist"]:
                                     st.warning("⚠️ 该公司存在风险，请谨慎考虑！")
+                        
+                        # 检查是否有低匹配度的岗位，提供优化建议
+                        low_match_jobs = [m for m in result.matches if m.get("total_score", 0) < 0.5]
+                        
+                        if low_match_jobs:
+                            st.divider()
+                            st.subheader("📝 简历优化建议")
+                            st.info("💡 发现部分岗位匹配度较低，以下是针对性的简历优化建议")
+                            
+                            # 选择要分析的岗位
+                            job_options = [
+                                f"{m.get('job_title', '')} @ {m.get('company_name', '')} ({m.get('total_score', 0):.0%})"
+                                for m in low_match_jobs[:5]
+                            ]
+                            selected_job = st.selectbox("选择要分析的岗位", job_options)
+                            
+                            if selected_job:
+                                # 获取选中的岗位
+                                job_idx = job_options.index(selected_job)
+                                target_job = low_match_jobs[job_idx]
+                                
+                                # 生成优化建议
+                                current_profile = st.session_state.get("current_profile", {})
+                                suggestion = resume_optimizer.analyze_and_suggest(
+                                    current_profile=current_profile,
+                                    match_result=target_job,
+                                    target_job=target_job,
+                                )
+                                
+                                # 显示优化建议
+                                col1, col2 = st.columns(2)
+                                
+                                with col1:
+                                    st.metric("当前匹配度", f"{suggestion.overall_score:.0%}")
+                                
+                                with col2:
+                                    st.metric("目标匹配度", f"{suggestion.target_score:.0%}")
+                                
+                                # 显示差距分析
+                                if suggestion.gaps:
+                                    st.write("**📊 匹配差距分析:**")
+                                    for gap in suggestion.gaps:
+                                        severity_icon = "🔴" if gap.severity >= 4 else "🟡" if gap.severity >= 2 else "🟢"
+                                        st.write(f"{severity_icon} **{gap.gap_type.upper()}**: {gap.description}")
+                                        for s in gap.suggestions:
+                                            st.write(f"  - {s}")
+                                
+                                # 显示技能建议
+                                if suggestion.skill_suggestions:
+                                    st.write("**🔑 技能优化建议:**")
+                                    for s in suggestion.skill_suggestions:
+                                        st.write(f"  - {s}")
+                                
+                                # 显示经验建议
+                                if suggestion.experience_suggestions:
+                                    st.write("**📋 经验优化建议:**")
+                                    for s in suggestion.experience_suggestions:
+                                        st.write(f"  - {s}")
+                                
+                                # 显示通用建议
+                                if suggestion.general_tips:
+                                    st.write("**💡 通用建议:**")
+                                    for s in suggestion.general_tips:
+                                        st.write(f"  - {s}")
+                                
+                                st.divider()
+                                
+                                # 生成修改建议
+                                modifications = resume_optimizer.generate_modifications(
+                                    current_profile, suggestion
+                                )
+                                
+                                if modifications:
+                                    st.write("**✏️ 简历修改建议:**")
+                                    
+                                    # 显示修改建议
+                                    accepted_fields = []
+                                    for i, mod in enumerate(modifications):
+                                        col1, col2 = st.columns([3, 1])
+                                        
+                                        with col1:
+                                            st.write(f"**{mod.field_name}**: {mod.reason}")
+                                            if mod.old_value:
+                                                st.caption(f"当前: {mod.old_value[:50]}...")
+                                            if mod.new_value:
+                                                st.caption(f"建议: {mod.new_value[:50]}...")
+                                        
+                                        with col2:
+                                            if st.checkbox("接受", key=f"mod_{i}", value=True):
+                                                accepted_fields.append(mod.field_name)
+                                    
+                                    # 应用修改
+                                    if st.button("🎯 应用修改并重新匹配", type="primary"):
+                                        # 应用修改
+                                        updated_profile = resume_optimizer.apply_modifications(
+                                            current_profile, modifications, accepted_fields
+                                        )
+                                        
+                                        # 更新用户档案
+                                        user = UserProfile(
+                                            id=updated_profile["user_id"],
+                                            current_title=updated_profile.get("current_title"),
+                                            experience_years=updated_profile.get("experience_years", 0),
+                                            education=updated_profile.get("education"),
+                                            skills=updated_profile.get("skills", []),
+                                        )
+                                        job_manager.create_user_profile(user)
+                                        
+                                        # 更新 session
+                                        st.session_state["current_profile"] = updated_profile
+                                        
+                                        st.success("✅ 简历已优化，正在重新匹配...")
+                                        st.rerun()
                         
                         # 如果匹配结果较少，提示手动输入
                         if result.need_manual_input:

@@ -314,6 +314,76 @@ class JobMatcher:
 
         return result
 
+    def get_user_profile(self, user_id: str) -> dict | None:
+        """获取用户档案
+
+        Args:
+            user_id: 用户 ID
+
+        Returns:
+            用户档案字典
+        """
+        try:
+            cypher = """
+            MATCH (u:UserProfile {id: $user_id})
+            RETURN u
+            """
+            results = neo4j_client.execute_query(cypher, {"user_id": user_id})
+            if results:
+                return dict(results[0].get("u", {}))
+            return None
+        except Exception as e:
+            logger.error(f"获取用户档案失败: {e}")
+            return None
+
+    def analyze_match_details(
+        self,
+        user_profile: dict,
+        job: dict,
+    ) -> dict:
+        """分析用户与岗位的匹配详情
+
+        Args:
+            user_profile: 用户档案
+            job: 岗位信息
+
+        Returns:
+            匹配详情
+        """
+        user_skills = set(user_profile.get("skills", []))
+        job_skills = set(job.get("skills", []))
+
+        matching_skills = list(user_skills & job_skills)
+        missing_skills = list(job_skills - user_skills)
+
+        # 计算各项匹配分数
+        skill_score = len(matching_skills) / len(job_skills) if job_skills else 0
+
+        # 经验匹配
+        user_exp = user_profile.get("experience_years", 0)
+        job_exp = job.get("experience_years")
+        if job_exp is None:
+            exp_score = 0.5
+        elif abs(user_exp - job_exp) <= 2:
+            exp_score = 1.0
+        elif abs(user_exp - job_exp) <= 5:
+            exp_score = 0.5
+        else:
+            exp_score = 0.2
+
+        # 总分
+        total_score = skill_score * 0.5 + exp_score * 0.3 + 0.2  # 0.2 是基础分
+
+        return {
+            "total_score": total_score,
+            "skill_score": skill_score,
+            "experience_score": exp_score,
+            "matching_skills": matching_skills,
+            "missing_skills": missing_skills,
+            "user_skill_count": len(user_skills),
+            "job_skill_count": len(job_skills),
+        }
+
 
 # 全局实例
 job_matcher = JobMatcher()
