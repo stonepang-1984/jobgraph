@@ -177,13 +177,33 @@ class ResumeExtractor:
             from config.settings import settings
 
             if self._llm is None:
-                self._llm = ChatOpenAI(
-                    model=settings.llm.openai_model,
-                    api_key=settings.llm.openai_api_key,
-                    base_url=settings.llm.openai_api_base,
-                    temperature=0,
-                    request_timeout=self.llm_timeout,  # 设置请求超时
-                )
+                # 根据配置选择 LLM
+                api_key = settings.llm.openai_api_key
+                
+                # 检查是否使用 Ollama
+                if api_key == "sk-your-openai-api-key" or not api_key or len(api_key) < 10:
+                    # 使用 Ollama（通过 OpenAI 兼容接口）
+                    ollama_url = settings.llm.ollama_base_url
+                    ollama_model = settings.llm.ollama_model
+                    
+                    self._llm = ChatOpenAI(
+                        model=ollama_model,
+                        api_key="ollama",  # Ollama 不需要真实的 API Key
+                        base_url=f"{ollama_url}/v1",
+                        temperature=0,
+                        request_timeout=self.llm_timeout,
+                    )
+                    logger.info(f"使用 Ollama: {ollama_url}, 模型: {ollama_model}")
+                else:
+                    # 使用 OpenAI API
+                    self._llm = ChatOpenAI(
+                        model=settings.llm.openai_model,
+                        api_key=api_key,
+                        base_url=settings.llm.openai_api_base,
+                        temperature=0,
+                        request_timeout=self.llm_timeout,
+                    )
+                    logger.info(f"使用 OpenAI API: {settings.llm.openai_model}")
 
             prompt = """你是一个专业的简历解析专家。请从以下简历文本中提取结构化信息。
 
