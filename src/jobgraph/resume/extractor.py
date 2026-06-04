@@ -135,16 +135,31 @@ class ResumeExtractor:
 
         try:
             from config.settings import settings
+            
+            # 检查 OpenAI API Key
             api_key = settings.llm.openai_api_key
+            if api_key and api_key != "sk-your-openai-api-key" and len(api_key) > 10:
+                self._llm_available = True
+                logger.info("使用 OpenAI API 模式")
+                return True
             
-            # 检查 API Key 是否有效配置
-            if not api_key or api_key == "sk-your-openai-api-key" or len(api_key) < 10:
-                logger.info("OpenAI API Key 未配置，使用规则提取模式")
-                self._llm_available = False
-                return False
+            # 检查 Ollama 配置
+            ollama_url = settings.llm.ollama_base_url
+            if ollama_url:
+                # 尝试连接 Ollama
+                try:
+                    import requests
+                    response = requests.get(f"{ollama_url}/api/tags", timeout=3)
+                    if response.status_code == 200:
+                        self._llm_available = True
+                        logger.info(f"使用 Ollama 模式: {ollama_url}")
+                        return True
+                except Exception:
+                    pass
             
-            self._llm_available = True
-            return True
+            logger.info("LLM 未配置或不可用，使用规则提取模式")
+            self._llm_available = False
+            return False
         except Exception as e:
             logger.warning(f"检查 LLM 配置失败: {e}")
             self._llm_available = False

@@ -129,8 +129,30 @@ class ConfigManager:
     def is_llm_configured(self) -> bool:
         """检查 LLM 是否已配置"""
         config = self.get_llm_config()
+        
+        # 检查 OpenAI API Key
         api_key = config.get("openai_api_key", "")
-        return bool(api_key and api_key != "sk-your-openai-api-key" and len(api_key) > 10)
+        if api_key and api_key != "sk-your-openai-api-key" and len(api_key) > 10:
+            return True
+        
+        # 检查 Ollama 配置
+        ollama_url = config.get("ollama_base_url", "")
+        if ollama_url and ollama_url != "http://localhost:11434":
+            return True
+        
+        return False
+
+    def get_active_provider(self) -> str:
+        """获取当前激活的 LLM 提供商"""
+        config = self.get_llm_config()
+        
+        # 检查 OpenAI API Key
+        api_key = config.get("openai_api_key", "")
+        if api_key and api_key != "sk-your-openai-api-key" and len(api_key) > 10:
+            return "openai"
+        
+        # 检查 Ollama
+        return "ollama"
 
 
 # 全局实例

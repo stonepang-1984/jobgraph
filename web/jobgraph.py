@@ -1477,9 +1477,14 @@ elif page == "⚙️ LLM 配置":
     # 测试连接
     st.subheader("🧪 测试连接")
     
+    # 显示当前激活的提供商
+    if config_manager.is_llm_configured():
+        active_provider = config_manager.get_active_provider()
+        st.info(f"当前激活的 LLM 提供商: **{active_provider.upper()}**")
+    
     if st.button("测试 LLM 连接"):
         if not config_manager.is_llm_configured():
-            st.warning("请先配置 LLM")
+            st.warning("请先配置 LLM（输入 OpenAI API Key 或配置 Ollama 地址）")
         else:
             with st.spinner("正在测试连接..."):
                 try:
@@ -1489,14 +1494,15 @@ elif page == "⚙️ LLM 配置":
                     resume_extractor._llm_available = None
                     
                     # 测试提取
-                    test_text = "张三，5年Java开发经验，熟悉Spring Boot、MySQL、Redis"
-                    result = resume_extractor._extract_with_llm(test_text)
+                    test_text = "5年Java开发经验，熟悉Spring Boot、MySQL、Redis"
+                    result = resume_extractor.extract(test_text)
                     
                     st.success("✅ LLM 连接成功！")
                     st.write(f"测试结果：识别到 {len(result.skills)} 个技能")
                     st.write(f"技能: {result.skills}")
                 except Exception as e:
                     st.error(f"❌ 连接失败: {e}")
+                    st.info("请检查：\n- API Key 是否正确\n- Ollama 服务是否启动\n- 网络连接是否正常")
     
     st.divider()
     
