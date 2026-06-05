@@ -10,6 +10,7 @@ os.environ["TORCH_DISABLE_CUSTOM_CLASS_CHECK"] = "1"
 
 import sys
 from pathlib import Path
+from datetime import datetime
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
@@ -24,6 +25,7 @@ from src.jobgraph.user.manager import user_manager
 from src.jobgraph.resume import resume_parser, resume_extractor, privacy_filter, resume_optimizer
 from src.jobgraph.matching import job_matcher
 from src.jobgraph.config_manager import config_manager
+from src.jobgraph.user_data_manager import user_data_manager
 
 
 # ============================================================
@@ -166,20 +168,28 @@ elif page == "📄 简历上传":
     
     st.divider()
     
-    # 检查是否有已保存的简历信息
-    saved_profile = st.session_state.get("resume_profile")
+    # 获取用户 ID（用于持久化存储）
+    user_id = user_manager.device_id
     
-    # 调试信息（可删除）
+    # 从本地文件加载已保存的简历信息
+    saved_profile = user_data_manager.load_resume_profile(user_id)
+    
     if saved_profile:
-        st.success(f"✅ 已有简历信息（刷新前保存）")
+        st.success("✅ 已有简历信息（本地持久化存储）")
         
-        col1, col2 = st.columns([3, 1])
+        col1, col2, col3 = st.columns([2, 1, 1])
         with col1:
             st.info(f"当前职位: {saved_profile.get('current_title', '未识别')} | 工作年限: {saved_profile.get('experience_years', 0)} 年 | 技能: {len(saved_profile.get('skills', []))} 项")
         with col2:
             if st.button("🔄 重新上传简历"):
-                del st.session_state["resume_profile"]
+                user_data_manager.delete_resume_profile(user_id)
+                if "resume_profile" in st.session_state:
+                    del st.session_state["resume_profile"]
                 st.rerun()
+        with col3:
+            saved_time = saved_profile.get("saved_at", "")
+            if saved_time:
+                st.caption(f"保存时间: {saved_time[:16]}")
         
         st.divider()
     
@@ -213,8 +223,8 @@ elif page == "📄 简历上传":
                 # 提取信息
                 profile = resume_extractor.extract(filtered_text)
                 
-                # 保存到 session_state
-                st.session_state["resume_profile"] = {
+                # 保存到本地文件（持久化）
+                resume_data = {
                     "current_title": profile.current_title,
                     "experience_years": profile.experience_years,
                     "education": profile.education,
@@ -222,9 +232,14 @@ elif page == "📄 简历上传":
                     "certifications": profile.certifications,
                     "work_history": profile.work_history,
                     "projects": profile.projects,
+                    "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 }
+                user_data_manager.save_resume_profile(user_id, resume_data)
                 
-                st.success("✅ 简历解析完成！已保存，刷新页面无需重新上传")
+                # 同时保存到 session_state
+                st.session_state["resume_profile"] = resume_data
+                
+                st.success("✅ 简历解析完成！已保存到本地，刷新页面无需重新上传")
                 
             except Exception as e:
                 st.error(f"❌ 简历解析失败: {e}")
