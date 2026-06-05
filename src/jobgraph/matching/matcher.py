@@ -1,8 +1,9 @@
 """智能匹配引擎
 
-支持两种匹配模式：
+支持三种匹配模式：
 1. 基于用户档案匹配（从简历解析）
 2. 基于手动输入匹配
+3. LLM 语义匹配（分析简历与职位描述的匹配度）
 
 降级策略：匹配结果不足时提示用户手动输入
 """
@@ -42,12 +43,149 @@ class JobMatcher:
     # 匹配结果阈值：少于此数量时提示手动输入
     MIN_MATCH_THRESHOLD = 5
 
-    def match_by_profile(self, user_id: str, limit: int = 20) -> MatchResult:
+    # LLM 可用性缓存
+    _llm_available = None
+    _llm = None
+
+    def _check_llm_available(self) -> bool:
+        """检查 LLM 是否可用"""
+        if self._llm_available is not None:
+            return self._llm_available
+
+        try:
+            from config.settings import settings
+
+            # 检查 OpenAI API Key
+            api_key = settings.llm.openai_api_key
+            if api_key and api_key != "sk-your-openai-api-key" and len(api_key) > 10:
+                self._llm_available = True
+                return True
+
+            # 检查 Ollama
+            import requests
+            ollama_url = settings.llm.ollama_base_url
+            response = requests.get(f"{ollama_url}/api/tags", timeout=3)
+            if response.status_code == 200:
+                self._llm_available = True
+                return True
+
+            self._llm_available = False
+            return False
+        except Exception:
+            self._llm_available = False
+            return False
+
+    def _get_llm(self):
+        """获取 LLM 实例"""
+        if self._llm is not None:
+            return self._llm
+
+        try:
+            from langchain_openai import ChatOpenAI
+            from config.settings import settings
+
+            api_key = settings.llm.openai_api_key
+
+            if api_key and api_key != "sk-your-openai-api-key" and len(api_key) > 10:
+                # 使用 OpenAI API
+                self._llm = ChatOpenAI(
+                    model=settings.llm.openai_model,
+                    api_key=api_key,
+                    base_url=settings.llm.openai_api_base,
+                    temperature=0,
+                    request_timeout=15,
+                )
+            else:
+                # 使用 Ollama
+                ollama_url = settings.llm.ollama_base_url
+                ollama_model = settings.llm.ollama_model
+                self._llm = ChatOpenAI(
+                    model=ollama_model,
+                    api_key="ollama",
+                    base_url=f"{ollama_url}/v1",
+                    temperature=0,
+                    request_timeout=15,
+                )
+
+            return self._llm
+        except Exception as e:
+            logger.error(f"获取 LLM 失败: {e}")
+            return None
+
+    def semantic_match_score(
+        self,
+        user_profile: dict,
+        job: dict,
+    ) -> float | None:
+        """使用 LLM 分析简历与职位描述的语义匹配度
+
+        Args:
+            user_profile: 用户档案
+            job: 岗位信息（包含 description, requirements）
+
+        Returns:
+            匹配分数 (0-1)，失败返回 None
+        """
+        if not self._check_llm_available():
+            return None
+
+        # 获取职位描述
+        description = job.get("description", "") or ""
+        requirements = job.get("requirements", "") or ""
+
+        if not description and not requirements:
+            return None
+
+        try:
+            llm = self._get_llm()
+            if not llm:
+                return None
+
+            # 构建提示词
+            user_skills = ", ".join(user_profile.get("skills", []))
+            user_exp = user_profile.get("experience_years", 0)
+            user_title = user_profile.get("current_title", "未提供")
+
+            prompt = f"""评估以下用户与岗位的匹配度。
+
+用户信息：
+- 当前职位：{user_title}
+- 工作年限：{user_exp} 年
+- 技能：{user_skills}
+
+岗位信息：
+- 职位：{job.get('title', '')}
+- 岗位职责：{description[:500]}
+- 任职要求：{requirements[:500]}
+
+请评估匹配度（0-100的整数），只返回数字，不要其他内容。"""
+
+            from langchain_core.messages import HumanMessage
+            response = llm.invoke([HumanMessage(content=prompt)])
+
+            # 解析分数
+            score_text = response.content.strip()
+            # 提取数字
+            import re
+            numbers = re.findall(r'\d+', score_text)
+            if numbers:
+                score = int(numbers[0])
+                if 0 <= score <= 100:
+                    return score / 100.0
+
+            return None
+
+        except Exception as e:
+            logger.warning(f"LLM 语义匹配失败: {e}")
+            return None
+
+    def match_by_profile(self, user_id: str, limit: int = 20, use_semantic: bool = True) -> MatchResult:
         """基于用户档案匹配岗位
 
         Args:
             user_id: 用户 ID
             limit: 返回结果数量限制
+            use_semantic: 是否使用 LLM 语义匹配
 
         Returns:
             匹配结果
@@ -105,10 +243,10 @@ class JobMatcher:
                  END AS risk_factor
 
             WITH u, j, c, matched_skills,
-                 (skill_score * 0.4 + salary_match * 0.25 + location_match * 0.2 + experience_match * 0.15) AS total_score,
+                 (skill_score * 0.4 + salary_match * 0.25 + location_match * 0.2 + experience_match * 0.15) AS structural_score,
                  risk_factor
 
-            WHERE total_score > 0.3
+            WHERE structural_score > 0.3
 
             RETURN j.id AS job_id,
                    j.title AS job_title,
@@ -118,19 +256,45 @@ class JobMatcher:
                    j.salary_max AS salary_max,
                    j.location AS location,
                    j.skills AS skills,
+                   j.description AS description,
+                   j.requirements AS requirements,
                    j.experience_years AS experience_years,
                    j.education AS education,
                    c.risk_level AS company_risk,
                    c.avg_rating AS company_rating,
                    matched_skills,
-                   total_score
-            ORDER BY total_score DESC
+                   structural_score
+            ORDER BY structural_score DESC
             LIMIT $limit
             """
 
             results = neo4j_client.execute_query(cypher, {"user_id": user_id, "limit": limit})
 
-            logger.info(f"匹配完成，找到 {len(results)} 个岗位")
+            logger.info(f"结构化匹配完成，找到 {len(results)} 个岗位")
+
+            # 获取用户档案
+            user_profile = self.get_user_profile(user_id)
+
+            # LLM 语义匹配（可选）
+            if use_semantic and user_profile and self._check_llm_available():
+                logger.info("开始 LLM 语义匹配...")
+                for result in results:
+                    semantic_score = self.semantic_match_score(user_profile, result)
+                    if semantic_score is not None:
+                        # 混合评分：结构化 40% + 语义 60%
+                        structural_score = result.get("structural_score", 0)
+                        result["semantic_score"] = semantic_score
+                        result["total_score"] = structural_score * 0.4 + semantic_score * 0.6
+                    else:
+                        # 语义匹配失败，使用结构化分数
+                        result["total_score"] = result.get("structural_score", 0)
+
+                # 重新排序
+                results.sort(key=lambda x: x.get("total_score", 0), reverse=True)
+            else:
+                # 不使用语义匹配，直接使用结构化分数
+                for result in results:
+                    result["total_score"] = result.get("structural_score", 0)
 
             return MatchResult(
                 matches=results,
@@ -262,6 +426,8 @@ class JobMatcher:
                    j.salary_max AS salary_max,
                    j.location AS location,
                    j.skills AS skills,
+                   j.description AS description,
+                   j.requirements AS requirements,
                    j.experience_years AS experience_years,
                    j.education AS education,
                    c.risk_level AS company_risk,
