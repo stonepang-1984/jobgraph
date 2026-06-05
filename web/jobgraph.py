@@ -372,6 +372,7 @@ elif page == "📄 简历上传":
                         risk_color = "green" if risk == "low" else "orange" if risk == "medium" else "red"
                         
                         with st.expander(f"{match.get('job_title', '')} @ {match.get('company_name', '')}"):
+                            # 基本信息
                             col1, col2, col3 = st.columns(3)
                             
                             with col1:
@@ -387,6 +388,27 @@ elif page == "📄 简历上传":
                             with col3:
                                 matched_skills = match.get("matched_skills", 0)
                                 st.write(f"**技能匹配**: {matched_skills}项")
+                                st.write(f"**经验要求**: {match.get('experience_years', '不限')}年")
+                            
+                            # 技能列表
+                            skills = match.get("skills", [])
+                            if skills:
+                                st.write(f"**技能要求**: {', '.join(skills[:10])}")
+                            
+                            # 岗位职责和任职要求
+                            description = match.get("description", "")
+                            requirements = match.get("requirements", "")
+                            
+                            if description or requirements:
+                                st.divider()
+                                
+                                if description:
+                                    st.write("**📋 岗位职责:**")
+                                    st.markdown(description)
+                                
+                                if requirements:
+                                    st.write("**📝 任职要求:**")
+                                    st.markdown(requirements)
                             
                             if risk in ["high", "blacklist"]:
                                 st.warning("⚠️ 该公司存在风险，请谨慎考虑！")
@@ -837,6 +859,7 @@ elif page == "🎯 智能匹配":
                         risk_color = "green" if risk == "low" else "orange" if risk == "medium" else "red"
                         
                         with st.expander(f"{match.get('job_title', '')} @ {match.get('company_name', '')}"):
+                            # 基本信息
                             col1, col2, col3 = st.columns(3)
                             
                             with col1:
@@ -852,6 +875,27 @@ elif page == "🎯 智能匹配":
                             with col3:
                                 matched_skills = match.get("matched_skills", 0)
                                 st.write(f"**技能匹配**: {matched_skills}项")
+                                st.write(f"**经验要求**: {match.get('experience_years', '不限')}年")
+                            
+                            # 技能列表
+                            skills = match.get("skills", [])
+                            if skills:
+                                st.write(f"**技能要求**: {', '.join(skills[:10])}")
+                            
+                            # 岗位职责和任职要求
+                            description = match.get("description", "")
+                            requirements = match.get("requirements", "")
+                            
+                            if description or requirements:
+                                st.divider()
+                                
+                                if description:
+                                    st.write("**📋 岗位职责:**")
+                                    st.markdown(description)
+                                
+                                if requirements:
+                                    st.write("**📝 任职要求:**")
+                                    st.markdown(requirements)
                             
                             if risk in ["high", "blacklist"]:
                                 st.warning("⚠️ 该公司存在风险，请谨慎考虑！")
