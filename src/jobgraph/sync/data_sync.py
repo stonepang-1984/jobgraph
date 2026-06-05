@@ -330,6 +330,8 @@ class DataSync:
                     experience_years=data.get("experience_years"),
                     education=data.get("education"),
                     skills=data.get("skills", []),
+                    description=data.get("description"),
+                    requirements=data.get("requirements"),
                     benefits=data.get("benefits", []),
                     is_active=data.get("is_active", True),
                 )
