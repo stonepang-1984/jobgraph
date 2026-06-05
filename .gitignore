@@ -97,3 +97,6 @@ admin_tools/
 docs/csdn_*
 docs/temp_*
 docs/draft_*
+
+# User data
+data/user/
