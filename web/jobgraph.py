@@ -4,6 +4,10 @@
 完全免费，所有功能均可使用
 """
 
+import os
+# 禁用 PyTorch 类检查警告（Streamlit 兼容性问题）
+os.environ["TORCH_DISABLE_CUSTOM_CLASS_CHECK"] = "1"
+
 import sys
 from pathlib import Path
 
