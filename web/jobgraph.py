@@ -169,8 +169,9 @@ elif page == "📄 简历上传":
     # 检查是否有已保存的简历信息
     saved_profile = st.session_state.get("resume_profile")
     
+    # 调试信息（可删除）
     if saved_profile:
-        st.success("✅ 已有简历信息（页面刷新前解析）")
+        st.success(f"✅ 已有简历信息（刷新前保存）")
         
         col1, col2 = st.columns([3, 1])
         with col1:
@@ -231,6 +232,7 @@ elif page == "📄 简历上传":
     elif saved_profile:
         # 使用已保存的简历信息
         profile = type('Profile', (), saved_profile)()
+        st.info("📋 使用已保存的简历信息")
     
     if profile:
         st.divider()
