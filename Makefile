@@ -89,23 +89,8 @@ import-initial: ## Import initial data (companies + jobs)
 jobgraph-generate: ## Generate and import sample data (usage: make jobgraph-generate COUNT=50)
 	python3 scripts/import_generated.py --companies $(or $(COUNT),50)
 
-crawl-data: ## Crawl data from public sources
-	python3 scripts/crawl_data.py
-
-import-data: ## Import crawled data to Neo4j
-	python3 scripts/import_to_neo4j.py
-
 import-fusion: ## Import data with fusion (dedup, quality check)
 	python3 scripts/import_with_fusion.py
-
-update-data: ## Update data (incremental)
-	python3 scripts/update_data.py
-
-update-data-force: ## Force update data
-	python3 scripts/update_data.py --force
-
-update-status: ## Show data update status
-	python3 scripts/update_data.py --status
 
 sync-package: ## Import offline data package (usage: make sync-package FILE=path/to/package.zip)
 	python3 scripts/sync_data.py --mode package --input $(FILE)
