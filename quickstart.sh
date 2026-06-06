@@ -118,7 +118,7 @@ init_database() {
 # 导入示例数据
 # ============================================================
 import_sample_data() {
-    print_header "导入示例数据"
+    print_header "导入初始数据"
     
     # 检查是否已有数据
     EXISTING_COUNT=$(PYTHONPATH=. $PYTHON -c "
@@ -132,19 +132,16 @@ print(result[0]['cnt'] if result else 0)
         return
     fi
     
-    print_info "导入示例数据..."
+    print_info "导入初始数据..."
     
-    # 生成数据
-    if [ -f scripts/crawl_data.py ]; then
-        PYTHONPATH=. $PYTHON scripts/crawl_data.py 2>/dev/null || true
+    # 使用新的导入脚本
+    if [ -f scripts/import_initial_data.py ]; then
+        PYTHONPATH=. $PYTHON scripts/import_initial_data.py 2>/dev/null || {
+            print_warning "数据导入可能失败，请检查日志"
+        }
     fi
     
-    # 导入到 Neo4j
-    if [ -f scripts/import_to_neo4j.py ]; then
-        PYTHONPATH=. $PYTHON scripts/import_to_neo4j.py 2>/dev/null || true
-    fi
-    
-    print_success "示例数据导入完成"
+    print_success "初始数据导入完成"
 }
 
 # ============================================================
@@ -177,17 +174,18 @@ print_usage() {
     echo "访问地址:"
     echo "  📊 JobGraph: http://localhost:8504"
     echo ""
-    echo "已导入示例数据:"
-    echo "  🏢 34 家公司 (互联网大厂、AI、新能源等)"
-    echo "  💼 150+ 个岗位"
-    echo "  💬 180+ 条员工评价"
+    echo "已导入初始数据:"
+    echo "  🏢 20 家公司 (腾讯、字节、阿里、美团等)"
+    echo "  💼 30+ 个职位 (腾讯官网爬取)"
     echo ""
     echo "功能:"
-    echo "  🔍 岗位搜索"
-    echo "  🏢 公司画像"
-    echo "  ⚠️ 避坑指南"
-    echo "  📊 薪资分析"
-    echo "  🎯 智能匹配"
+    echo "  📄 简历上传 - 上传简历自动解析，提取技能、经验"
+    echo "  🎯 智能匹配 - 根据简历信息自动匹配合适岗位"
+    echo "  📝 手动匹配 - 粘贴文本/上传图片匹配职位"
+    echo "  🔍 岗位搜索 - 智能筛选，按薪资、地点、技能过滤"
+    echo "  🏢 公司画像 - 员工评价、风险评分、薪资水平"
+    echo "  ⚠️ 避坑预警 - 坑点识别：欠薪、PUA、996 等"
+    echo "  📊 薪资分析 - 市场行情、薪资分布"
     echo ""
     echo "数据同步 (可选):"
     echo "  📦 离线数据包: make sync-package FILE=xxx.zip"

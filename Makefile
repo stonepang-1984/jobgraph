@@ -83,6 +83,9 @@ admin: ## Start admin management interface
 jobgraph-import: ## Import sample job data
 	python scripts/import_jobs.py
 
+import-initial: ## Import initial data (companies + jobs)
+	python3 scripts/import_initial_data.py
+
 jobgraph-generate: ## Generate and import sample data (usage: make jobgraph-generate COUNT=50)
 	python3 scripts/import_generated.py --companies $(or $(COUNT),50)
 
