@@ -95,7 +95,7 @@ class JobMatcher:
                     api_key=api_key,
                     base_url=settings.llm.openai_api_base,
                     temperature=0,
-                    request_timeout=15,
+                    request_timeout=120,
                 )
             else:
                 # 使用 Ollama
@@ -106,7 +106,7 @@ class JobMatcher:
                     api_key="ollama",
                     base_url=f"{ollama_url}/v1",
                     temperature=0,
-                    request_timeout=15,
+                    request_timeout=120,
                 )
 
             return self._llm
@@ -242,11 +242,7 @@ class JobMatcher:
         jobs: list[dict],
         limit: int = 10,
     ) -> list[dict]:
-        """第二层：语义匹配（软性条件）
-
-        使用 LLM 分析：
-        - 工作经历与岗位职责的匹配度
-        - 优势技能与任职要求的匹配度
+        """第二层：语义匹配（批量调用）
 
         Args:
             user_profile: 用户档案
@@ -262,25 +258,112 @@ class JobMatcher:
             logger.warning("LLM 不可用，跳过语义匹配")
             return jobs[:limit]
 
-        results = []
+        # 批量调用 LLM
+        scores = self.batch_semantic_match(user_profile, jobs)
 
-        for job in jobs:
-            semantic_score = self.semantic_match_score(user_profile, job)
-            if semantic_score is not None:
-                job["semantic_score"] = semantic_score
-                job["total_score"] = semantic_score
-                results.append(job)
+        # 合并结果
+        for job, score in zip(jobs, scores):
+            if score is not None:
+                job["semantic_score"] = score
+                job["total_score"] = score
             else:
-                # 语义匹配失败，使用初筛分数
+                # 降级：使用初筛分数
                 job["semantic_score"] = None
-                job["total_score"] = job.get("matched_skill_count", 0) * 0.1 + job.get("exp_match_score", 0) * 0.5
-                results.append(job)
+                job["total_score"] = job.get("matched_skill_count", 0) * 0.15 + job.get("exp_match_score", 0) * 0.4
 
-        # 按总分排序
-        results.sort(key=lambda x: x.get("total_score", 0), reverse=True)
+        # 排序
+        jobs.sort(key=lambda x: x.get("total_score", 0), reverse=True)
 
-        logger.info(f"语义匹配完成，返回 {min(len(results), limit)} 个职位")
-        return results[:limit]
+        logger.info(f"语义匹配完成，返回 {min(len(jobs), limit)} 个职位")
+        return jobs[:limit]
+
+    def batch_semantic_match(
+        self,
+        user_profile: dict,
+        jobs: list[dict],
+    ) -> list[float | None]:
+        """批量语义匹配
+
+        一次调用 LLM 评估所有职位的匹配度
+
+        Args:
+            user_profile: 用户档案
+            jobs: 职位列表
+
+        Returns:
+            匹配分数列表 (0-1)，失败返回 None
+        """
+        if not jobs:
+            return []
+
+        try:
+            llm = self._get_llm()
+            if not llm:
+                return [None] * len(jobs)
+
+            # 构建批量 prompt
+            job_list = "\n".join([
+                f"{i+1}. {job.get('title', '')} @ {job.get('company_name', '')}: "
+                f"{(job.get('description', '') or '')[:200]}"
+                for i, job in enumerate(jobs)
+            ])
+
+            user_skills = ", ".join(user_profile.get("skills", []))
+            user_exp = user_profile.get("experience_years", 0)
+            user_title = user_profile.get("current_title", "未提供")
+
+            prompt = f"""评估用户与以下岗位的匹配度。
+
+用户信息：
+- 职位：{user_title}
+- 年限：{user_exp} 年
+- 技能：{user_skills}
+
+岗位列表：
+{job_list}
+
+请返回每个岗位的匹配度（0-100的整数），用逗号分隔。
+例如：85,72,60,90,45
+只返回数字，不要其他内容。"""
+
+            from langchain_core.messages import HumanMessage
+            response = llm.invoke([HumanMessage(content=prompt)])
+
+            # 解析结果
+            scores = self._parse_batch_scores(response.content, len(jobs))
+            logger.info(f"批量语义匹配完成，{len(scores)} 个分数")
+            return scores
+
+        except Exception as e:
+            logger.warning(f"批量语义匹配失败: {e}")
+            return [None] * len(jobs)
+
+    def _parse_batch_scores(self, text: str, expected_count: int) -> list[float | None]:
+        """解析批量匹配分数
+
+        Args:
+            text: LLM 返回的文本
+            expected_count: 期望的分数数量
+
+        Returns:
+            分数列表 (0-1)
+        """
+        import re
+        numbers = re.findall(r'\d+', text)
+
+        scores = []
+        for num in numbers[:expected_count]:
+            score = int(num)
+            if 0 <= score <= 100:
+                scores.append(score / 100.0)
+            else:
+                scores.append(None)
+
+        # 补充缺失的分数
+        while len(scores) < expected_count:
+            scores.append(None)
+
+        return scores
 
     def semantic_match_score(
         self,
