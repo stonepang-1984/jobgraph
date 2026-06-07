@@ -1,9 +1,8 @@
 """智能匹配引擎
 
-支持三种匹配模式：
-1. 基于用户档案匹配（从简历解析）
-2. 基于手动输入匹配
-3. LLM 语义匹配（分析简历与职位描述的匹配度）
+两层匹配流程：
+1. 第一层：字段初筛（硬性条件：工作年限、学历、地点、薪资、技能）
+2. 第二层：语义匹配（软性条件：LLM 分析工作经历与岗位匹配度）
 
 降级策略：匹配结果不足时提示用户手动输入
 """
@@ -22,11 +21,13 @@ class MatchResult:
         need_manual_input: bool = False,
         message: str = "",
         total_count: int = 0,
+        filter_stats: dict | None = None,
     ):
         self.matches = matches
         self.need_manual_input = need_manual_input
         self.message = message
         self.total_count = total_count
+        self.filter_stats = filter_stats or {}
 
     def to_dict(self) -> dict:
         return {
@@ -34,6 +35,7 @@ class MatchResult:
             "need_manual_input": self.need_manual_input,
             "message": self.message,
             "total_count": self.total_count,
+            "filter_stats": self.filter_stats,
         }
 
 
@@ -112,6 +114,174 @@ class JobMatcher:
             logger.error(f"获取 LLM 失败: {e}")
             return None
 
+    def filter_by_fields(
+        self,
+        user_profile: dict,
+        limit: int = 50,
+    ) -> list[dict]:
+        """第一层：字段初筛（硬性条件）
+
+        筛选条件：
+        - 工作年限：职位要求 <= 用户年限 + 2
+        - 学历：职位要求 <= 用户学历
+        - 地点：匹配或接受远程
+        - 薪资：职位薪资 >= 用户期望
+        - 技能：至少匹配 1 项
+
+        Args:
+            user_profile: 用户档案
+            limit: 返回结果数量限制
+
+        Returns:
+            初筛后的职位列表
+        """
+        logger.info("第一层：字段初筛...")
+
+        # 获取用户条件
+        user_exp = user_profile.get("experience_years", 0)
+        user_education = user_profile.get("education")
+        user_skills = user_profile.get("skills", [])
+        user_locations = user_profile.get("desired_locations", [])
+        user_salary_min = user_profile.get("desired_salary_min")
+        user_prefer_remote = user_profile.get("prefer_remote", False)
+
+        # 学历优先级
+        edu_priority = {"大专": 1, "本科": 2, "硕士": 3, "博士": 4}
+        user_edu_level = edu_priority.get(user_education, 0)
+
+        # 构建学历列表（包含用户学历及以下）
+        edu_list = [k for k, v in edu_priority.items() if v <= user_edu_level] if user_edu_level > 0 else []
+
+        # 构建查询条件
+        conditions = ["j.is_active = true", "j.description IS NOT NULL", "j.description <> ''"]
+        params = {"limit": limit}
+
+        # 工作年限筛选
+        if user_exp > 0:
+            conditions.append("(j.experience_years IS NULL OR j.experience_years <= $user_exp + 2)")
+            params["user_exp"] = user_exp
+
+        # 学历筛选
+        if edu_list:
+            conditions.append("(j.education IS NULL OR j.education IN $edu_list)")
+            params["edu_list"] = edu_list
+
+        # 地点筛选
+        if user_locations:
+            location_conditions = []
+            for i, loc in enumerate(user_locations):
+                param_name = f"location_{i}"
+                location_conditions.append(f"j.location CONTAINS ${param_name}")
+                params[param_name] = loc
+            if user_prefer_remote:
+                location_conditions.append("j.is_remote = true")
+            conditions.append(f"({' OR '.join(location_conditions)})")
+
+        # 薪资筛选
+        if user_salary_min:
+            conditions.append("(j.salary_max IS NULL OR j.salary_max >= $salary_min)")
+            params["salary_min"] = user_salary_min
+
+        # 技能筛选（至少匹配 1 项）
+        if user_skills:
+            conditions.append("any(s IN $skills WHERE s IN j.skills)")
+            params["skills"] = user_skills
+
+        where_clause = " AND ".join(conditions)
+
+        # 查询
+        cypher = f"""
+        MATCH (j:Job)
+        OPTIONAL MATCH (c:Company)-[:HAS_JOB]->(j)
+
+        WITH j, c,
+             // 技能匹配数
+             size([s IN $skills WHERE s IN j.skills]) AS matched_skill_count,
+             // 经验匹配度
+             CASE
+                 WHEN j.experience_years IS NULL THEN 0.5
+                 WHEN abs(j.experience_years - $user_exp) <= 2 THEN 1.0
+                 WHEN abs(j.experience_years - $user_exp) <= 5 THEN 0.5
+                 ELSE 0.2
+             END AS exp_match_score
+
+        WHERE {where_clause}
+
+        RETURN j.id AS job_id,
+               j.title AS job_title,
+               j.company_name AS company_name,
+               j.company_id AS company_id,
+               j.salary_min AS salary_min,
+               j.salary_max AS salary_max,
+               j.location AS location,
+               j.is_remote AS is_remote,
+               j.skills AS skills,
+               j.description AS description,
+               j.requirements AS requirements,
+               j.experience_years AS experience_years,
+               j.education AS education,
+               c.risk_level AS company_risk,
+               c.avg_rating AS company_rating,
+               matched_skill_count,
+               exp_match_score
+        ORDER BY matched_skill_count DESC, exp_match_score DESC
+        LIMIT $limit
+        """
+
+        try:
+            results = neo4j_client.execute_query(cypher, params)
+            logger.info(f"字段初筛完成，找到 {len(results)} 个职位")
+            return results
+        except Exception as e:
+            logger.error(f"字段初筛失败: {e}")
+            return []
+
+    def rank_by_semantic(
+        self,
+        user_profile: dict,
+        jobs: list[dict],
+        limit: int = 10,
+    ) -> list[dict]:
+        """第二层：语义匹配（软性条件）
+
+        使用 LLM 分析：
+        - 工作经历与岗位职责的匹配度
+        - 优势技能与任职要求的匹配度
+
+        Args:
+            user_profile: 用户档案
+            jobs: 初筛后的职位列表
+            limit: 返回结果数量限制
+
+        Returns:
+            语义匹配后的职位列表
+        """
+        logger.info(f"第二层：语义匹配，{len(jobs)} 个职位...")
+
+        if not self._check_llm_available():
+            logger.warning("LLM 不可用，跳过语义匹配")
+            return jobs[:limit]
+
+        results = []
+
+        for job in jobs:
+            semantic_score = self.semantic_match_score(user_profile, job)
+            if semantic_score is not None:
+                job["semantic_score"] = semantic_score
+                job["total_score"] = semantic_score
+                results.append(job)
+            else:
+                # 语义匹配失败，使用初筛分数
+                job["semantic_score"] = None
+                job["total_score"] = job.get("matched_skill_count", 0) * 0.1 + job.get("exp_match_score", 0) * 0.5
+                results.append(job)
+
+        # 按总分排序
+        results.sort(key=lambda x: x.get("total_score", 0), reverse=True)
+
+        logger.info(f"语义匹配完成，返回 {min(len(results), limit)} 个职位")
+        return results[:limit]
+
     def semantic_match_score(
         self,
         user_profile: dict,
@@ -179,8 +349,12 @@ class JobMatcher:
             logger.warning(f"LLM 语义匹配失败: {e}")
             return None
 
-    def match_by_profile(self, user_id: str, limit: int = 20, use_semantic: bool = True) -> MatchResult:
-        """基于用户档案匹配岗位
+    def match_by_profile(self, user_id: str, limit: int = 10, use_semantic: bool = True) -> MatchResult:
+        """基于用户档案匹配岗位（两层匹配）
+
+        流程：
+        1. 第一层：字段初筛（硬性条件）
+        2. 第二层：语义匹配（软性条件）
 
         Args:
             user_id: 用户 ID
@@ -190,117 +364,59 @@ class JobMatcher:
         Returns:
             匹配结果
         """
-        logger.info(f"开始基于档案匹配，用户: {user_id}")
+        logger.info(f"开始两层匹配，用户: {user_id}")
 
         try:
-            cypher = """
-            MATCH (u:UserProfile {id: $user_id})
-            MATCH (j:Job {is_active: true})
-            OPTIONAL MATCH (c:Company)-[:HAS_JOB]->(j)
-
-            WITH u, j, c,
-                 // 技能匹配
-                 size([s IN u.skills WHERE s IN j.skills]) AS matched_skills,
-                 size(u.skills) AS user_skill_count,
-                 size(j.skills) AS job_skill_count,
-
-                 // 薪资匹配
-                 CASE
-                     WHEN u.desired_salary_min IS NULL AND u.desired_salary_max IS NULL THEN 0.5
-                     WHEN j.salary_max >= u.desired_salary_min AND j.salary_min <= u.desired_salary_max THEN 1.0
-                     WHEN j.salary_max >= u.desired_salary_min THEN 0.5
-                     ELSE 0.0
-                 END AS salary_match,
-
-                 // 地点匹配
-                 CASE
-                     WHEN j.is_remote AND u.prefer_remote THEN 1.0
-                     WHEN u.desired_locations IS NULL OR size(u.desired_locations) = 0 THEN 0.5
-                     WHEN any(loc IN u.desired_locations WHERE j.location CONTAINS loc) THEN 1.0
-                     ELSE 0.0
-                 END AS location_match,
-
-                 // 经验匹配
-                 CASE
-                     WHEN j.experience_years IS NULL THEN 0.5
-                     WHEN abs(j.experience_years - u.experience_years) <= 2 THEN 1.0
-                     WHEN abs(j.experience_years - u.experience_years) <= 5 THEN 0.5
-                     ELSE 0.2
-                 END AS experience_match
-
-            WITH u, j, c, matched_skills,
-                 CASE WHEN job_skill_count > 0
-                      THEN toFloat(matched_skills) / job_skill_count
-                      ELSE 0.0
-                 END AS skill_score,
-                 salary_match,
-                 location_match,
-                 experience_match,
-                 CASE WHEN c.risk_level = 'low' THEN 0.9
-                      WHEN c.risk_level = 'medium' THEN 0.6
-                      WHEN c.risk_level = 'high' THEN 0.3
-                      ELSE 0.5
-                 END AS risk_factor
-
-            WITH u, j, c, matched_skills,
-                 (skill_score * 0.4 + salary_match * 0.25 + location_match * 0.2 + experience_match * 0.15) AS structural_score,
-                 risk_factor
-
-            WHERE structural_score > 0.3
-
-            RETURN j.id AS job_id,
-                   j.title AS job_title,
-                   j.company_name AS company_name,
-                   j.company_id AS company_id,
-                   j.salary_min AS salary_min,
-                   j.salary_max AS salary_max,
-                   j.location AS location,
-                   j.skills AS skills,
-                   j.description AS description,
-                   j.requirements AS requirements,
-                   j.experience_years AS experience_years,
-                   j.education AS education,
-                   c.risk_level AS company_risk,
-                   c.avg_rating AS company_rating,
-                   matched_skills,
-                   structural_score
-            ORDER BY structural_score DESC
-            LIMIT $limit
-            """
-
-            results = neo4j_client.execute_query(cypher, {"user_id": user_id, "limit": limit})
-
-            logger.info(f"结构化匹配完成，找到 {len(results)} 个岗位")
-
             # 获取用户档案
             user_profile = self.get_user_profile(user_id)
+            if not user_profile:
+                logger.error(f"未找到用户档案: {user_id}")
+                return MatchResult(
+                    matches=[],
+                    need_manual_input=True,
+                    message="未找到用户档案，请先上传简历或填写信息",
+                )
 
-            # LLM 语义匹配（可选）
-            if use_semantic and user_profile and self._check_llm_available():
-                logger.info("开始 LLM 语义匹配...")
-                for result in results:
-                    semantic_score = self.semantic_match_score(user_profile, result)
-                    if semantic_score is not None:
-                        # 混合评分：结构化 40% + 语义 60%
-                        structural_score = result.get("structural_score", 0)
-                        result["semantic_score"] = semantic_score
-                        result["total_score"] = structural_score * 0.4 + semantic_score * 0.6
-                    else:
-                        # 语义匹配失败，使用结构化分数
-                        result["total_score"] = result.get("structural_score", 0)
+            # 第一层：字段初筛
+            filtered_jobs = self.filter_by_fields(user_profile, limit=50)
+            filter_stats = {
+                "total_jobs": self._get_total_job_count(),
+                "filtered_count": len(filtered_jobs),
+            }
 
-                # 重新排序
-                results.sort(key=lambda x: x.get("total_score", 0), reverse=True)
+            if not filtered_jobs:
+                logger.warning("字段初筛无结果")
+                return MatchResult(
+                    matches=[],
+                    need_manual_input=True,
+                    message="未找到符合条件的职位，建议调整筛选条件或手动输入",
+                    filter_stats=filter_stats,
+                )
+
+            # 第二层：语义匹配
+            if use_semantic and self._check_llm_available():
+                final_jobs = self.rank_by_semantic(user_profile, filtered_jobs, limit=limit)
+                filter_stats["semantic_used"] = True
             else:
-                # 不使用语义匹配，直接使用结构化分数
-                for result in results:
-                    result["total_score"] = result.get("structural_score", 0)
+                # 不使用语义匹配，计算综合分数
+                for job in filtered_jobs:
+                    matched_skill_count = job.get("matched_skill_count", 0)
+                    exp_match_score = job.get("exp_match_score", 0)
+                    # 综合分数：技能匹配 60% + 经验匹配 40%
+                    job["total_score"] = matched_skill_count * 0.15 + exp_match_score * 0.4
+                final_jobs = filtered_jobs[:limit]
+                filter_stats["semantic_used"] = False
+
+            filter_stats["final_count"] = len(final_jobs)
+
+            logger.info(f"匹配完成: 初筛 {filter_stats['filtered_count']} -> 最终 {filter_stats['final_count']}")
 
             return MatchResult(
-                matches=results,
-                need_manual_input=len(results) < self.MIN_MATCH_THRESHOLD,
-                message="匹配结果较少，建议手动输入职位信息" if len(results) < self.MIN_MATCH_THRESHOLD else "",
-                total_count=len(results),
+                matches=final_jobs,
+                need_manual_input=len(final_jobs) < self.MIN_MATCH_THRESHOLD,
+                message="匹配结果较少，建议手动输入职位信息" if len(final_jobs) < self.MIN_MATCH_THRESHOLD else "",
+                total_count=len(final_jobs),
+                filter_stats=filter_stats,
             )
 
         except Exception as e:
@@ -310,6 +426,16 @@ class JobMatcher:
                 need_manual_input=True,
                 message=f"匹配出错: {e}，请尝试手动输入",
             )
+
+    def _get_total_job_count(self) -> int:
+        """获取职位总数"""
+        try:
+            result = neo4j_client.execute_query(
+                "MATCH (j:Job {is_active: true}) RETURN count(j) AS cnt"
+            )
+            return result[0]["cnt"] if result else 0
+        except Exception:
+            return 0
 
     def match_by_manual_input(
         self,
@@ -341,7 +467,7 @@ class JobMatcher:
 
         try:
             # 构建查询条件
-            conditions = ["j.is_active = true"]
+            conditions = ["j.is_active = true", "j.description IS NOT NULL", "j.description <> ''"]
             params = {"limit": limit}
 
             # 技能条件（可选）
@@ -460,7 +586,7 @@ class JobMatcher:
                 message=f"匹配出错: {e}",
             )
 
-    def match_with_fallback(self, user_id: str, limit: int = 20) -> MatchResult:
+    def match_with_fallback(self, user_id: str, limit: int = 10) -> MatchResult:
         """带降级策略的匹配
 
         先尝试档案匹配，如果结果不足则提示手动输入

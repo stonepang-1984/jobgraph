@@ -352,9 +352,18 @@ elif page == "📄 简历上传":
                 
                 # 执行匹配
                 with st.spinner("正在匹配岗位..."):
-                    result = job_matcher.match_by_profile(user_id, limit=20)
+                    result = job_matcher.match_by_profile(user_id, limit=10)
                 
                 if result.matches:
+                    # 显示匹配流程统计
+                    filter_stats = result.filter_stats or {}
+                    if filter_stats:
+                        st.info(f"""
+                        📊 **匹配流程**：
+                        1️⃣ 字段初筛：从 {filter_stats.get('total_jobs', '?')} 个职位中筛选出 {filter_stats.get('filtered_count', '?')} 个
+                        2️⃣ 语义匹配：{'已启用' if filter_stats.get('semantic_used') else '未启用'}，最终推荐 {filter_stats.get('final_count', '?')} 个职位
+                        """)
+                    
                     st.success(f"✅ 为你找到 {len(result.matches)} 个匹配岗位")
                     
                     # 显示匹配结果
@@ -839,9 +848,18 @@ elif page == "🎯 智能匹配":
                 job_manager.create_user_profile(user)
                 
                 with st.spinner("正在匹配岗位..."):
-                    result = job_matcher.match_by_profile(user_id, limit=20)
+                    result = job_matcher.match_by_profile(user_id, limit=10)
                 
                 if result.matches:
+                    # 显示匹配流程统计
+                    filter_stats = result.filter_stats or {}
+                    if filter_stats:
+                        st.info(f"""
+                        📊 **匹配流程**：
+                        1️⃣ 字段初筛：从 {filter_stats.get('total_jobs', '?')} 个职位中筛选出 {filter_stats.get('filtered_count', '?')} 个
+                        2️⃣ 语义匹配：{'已启用' if filter_stats.get('semantic_used') else '未启用'}，最终推荐 {filter_stats.get('final_count', '?')} 个职位
+                        """)
+                    
                     st.success(f"✅ 为你找到 {len(result.matches)} 个匹配岗位")
                     
                     # 显示匹配结果
