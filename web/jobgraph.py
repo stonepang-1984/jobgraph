@@ -424,17 +424,19 @@ elif page == "📄 简历上传":
                     
                     # 如果匹配结果较少，提示手动输入
                     if result.need_manual_input:
-                        st.divider()
-                        st.info("💡 匹配结果较少？可以尝试手动输入职位信息获取更多匹配")
-                        if st.button("📝 手动输入职位信息"):
-                            st.session_state["page"] = "📝 手动匹配"
-                            st.rerun()
+                        st.session_state["show_manual_btn"] = True
                 else:
                     st.warning("暂未找到匹配的岗位")
-                    st.info("💡 建议尝试手动输入职位信息进行匹配")
-                    if st.button("📝 手动输入职位信息", key="manual_btn"):
-                        st.session_state["page"] = "📝 手动匹配"
-                        st.rerun()
+                    st.session_state["show_manual_btn"] = True
+    
+    # 手动输入按钮（在 form 外部）
+    if st.session_state.get("show_manual_btn"):
+        st.divider()
+        st.info("💡 建议尝试手动输入职位信息进行匹配")
+        if st.button("📝 手动输入职位信息", key="manual_btn_resume"):
+            st.session_state["page"] = "📝 手动匹配"
+            st.session_state["show_manual_btn"] = False
+            st.rerun()
     
     else:
         # 未上传文件时显示说明
