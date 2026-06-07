@@ -89,6 +89,198 @@ SKILL_KEYWORDS = {
     "cli", "命令行", "命令行界面",
 }
 
+# 技能名称标准化映射（小写 -> 标准名称）
+SKILL_STANDARD_MAP = {
+    # 编程语言
+    "python": "Python",
+    "java": "Java",
+    "javascript": "JavaScript",
+    "typescript": "TypeScript",
+    "go": "Go",
+    "golang": "Go",
+    "rust": "Rust",
+    "c": "C",
+    "c++": "C++",
+    "c#": "C#",
+    "php": "PHP",
+    "ruby": "Ruby",
+    "swift": "Swift",
+    "kotlin": "Kotlin",
+    "scala": "Scala",
+    "r": "R",
+    # 前端
+    "react": "React",
+    "vue": "Vue",
+    "angular": "Angular",
+    "next.js": "Next.js",
+    "nuxt": "Nuxt",
+    "svelte": "Svelte",
+    "html": "HTML",
+    "css": "CSS",
+    "scss": "SCSS",
+    "tailwind": "Tailwind",
+    "bootstrap": "Bootstrap",
+    "jquery": "jQuery",
+    "webpack": "Webpack",
+    "vite": "Vite",
+    # 后端
+    "node.js": "Node.js",
+    "express": "Express",
+    "django": "Django",
+    "flask": "Flask",
+    "fastapi": "FastAPI",
+    "spring": "Spring",
+    "springboot": "Spring Boot",
+    "laravel": "Laravel",
+    "rails": "Rails",
+    "gin": "Gin",
+    # 数据库
+    "mysql": "MySQL",
+    "postgresql": "PostgreSQL",
+    "mongodb": "MongoDB",
+    "redis": "Redis",
+    "elasticsearch": "Elasticsearch",
+    "oracle": "Oracle",
+    "sqlserver": "SQL Server",
+    "sqlite": "SQLite",
+    "cassandra": "Cassandra",
+    "neo4j": "Neo4j",
+    "dynamodb": "DynamoDB",
+    "tidb": "TiDB",
+    "oceanbase": "OceanBase",
+    # 云和DevOps
+    "aws": "AWS",
+    "azure": "Azure",
+    "gcp": "GCP",
+    "docker": "Docker",
+    "kubernetes": "Kubernetes",
+    "k8s": "Kubernetes",
+    "jenkins": "Jenkins",
+    "gitlab": "GitLab",
+    "github": "GitHub",
+    "ci/cd": "CI/CD",
+    "terraform": "Terraform",
+    "ansible": "Ansible",
+    "prometheus": "Prometheus",
+    "grafana": "Grafana",
+    # AI/ML
+    "nlp": "NLP",
+    "cv": "CV",
+    "tensorflow": "TensorFlow",
+    "pytorch": "PyTorch",
+    "keras": "Keras",
+    "scikit-learn": "Scikit-learn",
+    "pandas": "Pandas",
+    "numpy": "NumPy",
+    "llm": "LLM",
+    "gpt": "GPT",
+    "transformer": "Transformer",
+    "bert": "BERT",
+    "aigc": "AIGC",
+    # 大数据
+    "hadoop": "Hadoop",
+    "spark": "Spark",
+    "flink": "Flink",
+    "kafka": "Kafka",
+    "hive": "Hive",
+    "presto": "Presto",
+    "airflow": "Airflow",
+    # 移动开发
+    "android": "Android",
+    "ios": "iOS",
+    "react native": "React Native",
+    "flutter": "Flutter",
+    # 网络与通信
+    "tcp/ip": "TCP/IP",
+    "tcp": "TCP",
+    "ip": "IP",
+    "udp": "UDP",
+    "http": "HTTP",
+    "https": "HTTPS",
+    "dns": "DNS",
+    "dhcp": "DHCP",
+    "arp": "ARP",
+    "snmp": "SNMP",
+    "ssh": "SSH",
+    "telnet": "Telnet",
+    "ftp": "FTP",
+    "smtp": "SMTP",
+    "socket": "Socket",
+    "vlan": "VLAN",
+    "vpn": "VPN",
+    "nat": "NAT",
+    "acl": "ACL",
+    "qos": "QoS",
+    "stp": "STP",
+    "rstp": "RSTP",
+    "rip": "RIP",
+    "ospf": "OSPF",
+    "bgp": "BGP",
+    "mpls": "MPLS",
+    "lldp": "LLDP",
+    "ntp": "NTP",
+    # 嵌入式与系统
+    "嵌入式linux": "嵌入式Linux",
+    "arm": "ARM",
+    "mips": "MIPS",
+    "risc-v": "RISC-V",
+    "rtos": "RTOS",
+    "vxworks": "VxWorks",
+    "gcc": "GCC",
+    "gdb": "GDB",
+    "makefile": "Makefile",
+    "bash": "Bash",
+    "awk": "Awk",
+    "sed": "Sed",
+    "busybox": "BusyBox",
+    "rootfs": "RootFS",
+    "syslog": "Syslog",
+    # Web与服务器
+    "nginx": "Nginx",
+    "apache": "Apache",
+    "tomcat": "Tomcat",
+    "cgi": "CGI",
+    # 认证与安全
+    "radius": "RADIUS",
+    "tacacs": "TACACS",
+    "ldap": "LDAP",
+    "ssl": "SSL",
+    "tls": "TLS",
+    # 开发工具
+    "vim": "Vim",
+    "emacs": "Emacs",
+    "vscode": "VSCode",
+    "git": "Git",
+    "svn": "SVN",
+    "cvs": "CVS",
+    "tcpdump": "Tcpdump",
+    "wireshark": "Wireshark",
+    # 其他技术
+    "restful": "RESTful",
+    "graphql": "GraphQL",
+    "grpc": "gRPC",
+    "mq": "MQ",
+    "rabbitmq": "RabbitMQ",
+    "rocketmq": "RocketMQ",
+    "tipc": "TIPC",
+    "cli": "CLI",
+    # 中文技能标准化
+    "linux": "Linux",
+    "shell脚本": "Shell脚本",
+    "web服务器": "Web服务器",
+    "web界面": "Web界面",
+    "web开发": "Web开发",
+    "tcp服务器": "TCP服务器",
+    "socket编程": "Socket编程",
+    "交叉编译器": "交叉编译器",
+    "日志系统": "日志系统",
+    "文件系统": "文件系统",
+    "命令行": "命令行",
+    "命令行界面": "命令行界面",
+    "在线升级": "在线升级",
+    "热升级": "热升级",
+}
+
 
 class ResumeExtractor:
     """简历信息提取器"""
@@ -300,14 +492,16 @@ class ResumeExtractor:
             if is_chinese:
                 # 中文技能直接匹配
                 if skill_lower in text_lower:
-                    found_skills.append(skill)
+                    # 使用标准化名称
+                    standard_name = SKILL_STANDARD_MAP.get(skill_lower, skill)
+                    found_skills.append(standard_name)
             else:
                 # 英文技能使用单词边界匹配
                 pattern = r'\b' + re.escape(skill_lower) + r'\b'
                 if re.search(pattern, text_lower):
-                    found_skills.append(skill)
-
-        return sorted(list(set(found_skills)))
+                    # 使用标准化名称
+                    standard_name = SKILL_STANDARD_MAP.get(skill_lower, skill)
+                    found_skills.append(standard_name)
 
         return sorted(list(set(found_skills)))
 
