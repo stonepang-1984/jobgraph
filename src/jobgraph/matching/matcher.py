@@ -301,36 +301,38 @@ class JobMatcher:
             if not llm:
                 return [None] * len(jobs)
 
-            # 构建批量 prompt
+            # 限制职位数量，避免 prompt 过长
+            max_jobs = 10
+            jobs_to_eval = jobs[:max_jobs]
+            remaining_jobs = jobs[max_jobs:]
+
+            # 构建简化 prompt（减少 token 数量）
             job_list = "\n".join([
-                f"{i+1}. {job.get('title', '')} @ {job.get('company_name', '')}: "
-                f"{(job.get('description', '') or '')[:200]}"
-                for i, job in enumerate(jobs)
+                f"{i+1}. {job.get('title', '')}"
+                for i, job in enumerate(jobs_to_eval)
             ])
 
-            user_skills = ", ".join(user_profile.get("skills", []))
+            user_skills = ", ".join(user_profile.get("skills", [])[:5])  # 只取前5个技能
             user_exp = user_profile.get("experience_years", 0)
-            user_title = user_profile.get("current_title", "未提供")
 
-            prompt = f"""评估用户与以下岗位的匹配度。
+            prompt = f"""评估匹配度（0-100），用逗号分隔，只返回数字。
 
-用户信息：
-- 职位：{user_title}
-- 年限：{user_exp} 年
-- 技能：{user_skills}
+用户：{user_exp}年经验，技能：{user_skills}
 
-岗位列表：
+岗位：
 {job_list}
 
-请返回每个岗位的匹配度（0-100的整数），用逗号分隔。
-例如：85,72,60,90,45
-只返回数字，不要其他内容。"""
+示例输出：85,72,60,90,45"""
 
             from langchain_core.messages import HumanMessage
             response = llm.invoke([HumanMessage(content=prompt)])
 
             # 解析结果
-            scores = self._parse_batch_scores(response.content, len(jobs))
+            scores = self._parse_batch_scores(response.content, len(jobs_to_eval))
+            
+            # 对于超出限制的职位，返回 None
+            scores.extend([None] * len(remaining_jobs))
+            
             logger.info(f"批量语义匹配完成，{len(scores)} 个分数")
             return scores
 
