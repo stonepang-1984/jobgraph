@@ -449,58 +449,70 @@ elif page == "📄 简历上传":
         user_profile_data = st.session_state.get("user_profile_data", {})
         match_result = st.session_state.get("match_result")
         
-        # 获取目标职位的技能要求
-        all_job_skills = set()
-        if match_result and match_result.matches:
-            for job in match_result.matches[:3]:  # 取前3个职位
-                all_job_skills.update(job.get("skills", []))
+        # 检查是否有匹配结果
+        has_matches = match_result and match_result.matches and len(match_result.matches) > 0
         
-        user_skills = set(user_profile_data.get("skills", []))
-        missing_skills = all_job_skills - user_skills
-        
-        if missing_skills:
-            st.warning(f"⚡ **技能差距**：您缺少以下技能，建议补充：")
+        if not has_matches:
+            # 没有匹配结果，提示技能差距大
+            st.warning("⚡ **匹配结果为空**：您的技能与当前职位需求差距较大")
+            st.info("💡 **建议**：")
+            st.markdown("""
+            1. 尝试手动输入职位信息进行匹配
+            2. 或者修改简历，添加更多相关技能
+            """)
             
-            # 显示缺失技能
-            missing_skills_text = ", ".join([f"`{s}`" for s in sorted(missing_skills)])
-            st.markdown(missing_skills_text)
-            
-            # 生成修改建议
-            current_skills = user_profile_data.get("skills", [])
-            suggested_skills = current_skills + sorted(missing_skills)[:5]  # 最多添加5个技能
-            
-            st.info(f"💡 **建议**：在简历技能部分添加以下技能：")
-            st.markdown(f"```\n{', '.join(suggested_skills)}\n```")
-            
-            # 用户确认修改
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("✅ 接受建议，更新简历", type="primary"):
-                    # 更新用户档案
-                    import hashlib
-                    user_id = hashlib.md5(
-                        f"{user_manager.device_id}_resume".encode()
-                    ).hexdigest()[:16]
-                    
-                    user = UserProfile(
-                        id=user_id,
-                        current_title=user_profile_data.get("current_title", ""),
-                        experience_years=user_profile_data.get("experience_years", 0),
-                        education=user_profile_data.get("education"),
-                        skills=suggested_skills,
-                    )
-                    job_manager.create_user_profile(user)
-                    
-                    st.success("✅ 简历已更新！正在重新匹配...")
-                    st.session_state["show_optimization"] = False
-                    st.rerun()
-            
-            with col2:
-                if st.button("❌ 保持原样"):
-                    st.session_state["show_optimization"] = False
-                    st.rerun()
+            if st.button("📝 手动输入职位信息", key="manual_from_empty"):
+                st.session_state["page"] = "📝 手动匹配"
+                st.session_state["show_optimization"] = False
+                st.rerun()
         else:
-            st.success("✅ 您的技能与职位匹配良好！")
+            # 有匹配结果，分析技能差距
+            all_job_skills = set()
+            for job in match_result.matches[:3]:
+                all_job_skills.update(job.get("skills", []))
+            
+            user_skills = set(user_profile_data.get("skills", []))
+            missing_skills = all_job_skills - user_skills
+            
+            if missing_skills:
+                st.warning(f"⚡ **技能差距**：您缺少以下技能，建议补充：")
+                
+                missing_skills_text = ", ".join([f"`{s}`" for s in sorted(missing_skills)])
+                st.markdown(missing_skills_text)
+                
+                current_skills = user_profile_data.get("skills", [])
+                suggested_skills = current_skills + sorted(missing_skills)[:5]
+                
+                st.info(f"💡 **建议**：在简历技能部分添加以下技能：")
+                st.markdown(f"```\n{', '.join(suggested_skills)}\n```")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("✅ 接受建议，更新简历", type="primary"):
+                        import hashlib
+                        user_id = hashlib.md5(
+                            f"{user_manager.device_id}_resume".encode()
+                        ).hexdigest()[:16]
+                        
+                        user = UserProfile(
+                            id=user_id,
+                            current_title=user_profile_data.get("current_title", ""),
+                            experience_years=user_profile_data.get("experience_years", 0),
+                            education=user_profile_data.get("education"),
+                            skills=suggested_skills,
+                        )
+                        job_manager.create_user_profile(user)
+                        
+                        st.success("✅ 简历已更新！正在重新匹配...")
+                        st.session_state["show_optimization"] = False
+                        st.rerun()
+                
+                with col2:
+                    if st.button("❌ 保持原样"):
+                        st.session_state["show_optimization"] = False
+                        st.rerun()
+            else:
+                st.success("✅ 您的技能与职位匹配良好！")
     
     # 手动输入按钮（在 form 外部）
     if st.session_state.get("show_manual_btn"):
