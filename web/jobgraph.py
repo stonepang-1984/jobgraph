@@ -461,8 +461,8 @@ elif page == "📄 简历上传":
             2. 或者修改简历，添加更多相关技能
             """)
             
-            if st.button("📝 手动输入职位信息", key="manual_from_empty"):
-                st.session_state["page"] = "📝 手动匹配"
+            if st.button("📝 手动输入职位信息", key="manual_from_empty2"):
+                st.session_state["page"] = "🎯 智能匹配"
                 st.session_state["show_optimization"] = False
                 st.rerun()
         else:
@@ -518,9 +518,9 @@ elif page == "📄 简历上传":
     if st.session_state.get("show_manual_btn"):
         st.divider()
         st.info("💡 建议尝试手动输入职位信息进行匹配")
-        if st.button("📝 手动输入职位信息", key="manual_btn_resume"):
-            st.session_state["page"] = "📝 手动匹配"
-            st.session_state["show_manual_btn"] = False
+        if st.button("📝 手动输入职位信息", key="manual_from_empty"):
+            st.session_state["page"] = "🎯 智能匹配"
+            st.session_state["show_optimization"] = False
             st.rerun()
     
     else:
