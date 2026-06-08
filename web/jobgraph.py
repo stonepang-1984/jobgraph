@@ -23,6 +23,7 @@ from src.jobgraph.graph_manager import job_manager
 from src.jobgraph.models import CompanySize, UserProfile
 from src.jobgraph.user.manager import user_manager
 from src.jobgraph.resume import resume_parser, resume_extractor, privacy_filter, resume_optimizer
+from src.jobgraph.resume.extractor import SKILL_STANDARD_MAP
 from src.jobgraph.matching import job_matcher
 from src.jobgraph.config_manager import config_manager
 from src.jobgraph.user_data_manager import user_data_manager
@@ -939,10 +940,10 @@ elif page == "🎯 智能匹配":
                     current_title=job_title,
                     experience_years=experience_years,
                     education=education if education != "不限" else None,
-                    skills=[s.strip() for s in skills.split(",") if s.strip()],
+                    skills=[SKILL_STANDARD_MAP.get(s.strip().lower(), s.strip().title()) for s in skills.replace("，", ",").split(",") if s.strip()],
                     desired_salary_min=desired_salary * 1000 * 0.8 if desired_salary > 0 else None,
                     desired_salary_max=desired_salary * 1000 * 1.2 if desired_salary > 0 else None,
-                    desired_locations=[location] if location else [],
+                    desired_locations=[loc.strip() for loc in location.replace("，", ",").split(",") if loc.strip()] if location else [],
                     prefer_remote=prefer_remote,
                 )
                 
