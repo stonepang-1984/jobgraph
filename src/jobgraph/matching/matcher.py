@@ -95,7 +95,7 @@ class JobMatcher:
                     api_key=api_key,
                     base_url=settings.llm.openai_api_base,
                     temperature=0,
-                    request_timeout=120,
+                    request_timeout=300,
                 )
             else:
                 # 使用 Ollama
@@ -106,7 +106,7 @@ class JobMatcher:
                     api_key="ollama",
                     base_url=f"{ollama_url}/v1",
                     temperature=0,
-                    request_timeout=120,
+                    request_timeout=300,
                 )
 
             return self._llm
