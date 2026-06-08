@@ -315,10 +315,16 @@ class JobMatcher:
             user_skills = ", ".join(user_profile.get("skills", [])[:8])
             user_exp = user_profile.get("experience_years", 0)
             user_title = user_profile.get("current_title", "未提供")
+            user_summary = user_profile.get("resume_text", "")
+
+            # 构建用户信息部分
+            user_info = f"用户：{user_title}，{user_exp}年，技能：{user_skills}"
+            if user_summary:
+                user_info += f"\n个人简介：{user_summary[:200]}"
 
             prompt = f"""评估用户与岗位的匹配度。
 
-用户：{user_title}，{user_exp}年，技能：{user_skills}
+{user_info}
 
 岗位：
 {job_list}

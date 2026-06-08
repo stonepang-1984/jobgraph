@@ -805,6 +805,7 @@ elif page == "🎯 智能匹配":
     default_desired_salary = 30
     default_location = ""
     default_prefer_remote = False
+    default_summary = ""
     
     # 根据输入方式解析
     if input_method == "📋 粘贴文本":
@@ -841,6 +842,10 @@ elif page == "🎯 智能匹配":
                     if parsed.get("salary_min"):
                         st.write(f"**薪资**: {parsed['salary_min']/1000:.0f}-{parsed.get('salary_max', 0)/1000:.0f}K")
                 
+                # 显示个人简介
+                if parsed.get("summary"):
+                    st.write(f"**个人简介**: {parsed['summary'][:100]}...")
+                
                 # 更新默认值
                 default_job_title = parsed.get("job_title", "")
                 default_skills = ", ".join(parsed.get("skills", []))
@@ -848,6 +853,7 @@ elif page == "🎯 智能匹配":
                 default_education = parsed.get("education", "本科")
                 default_desired_salary = int(parsed.get("salary_min", 30000) / 1000)
                 default_location = parsed.get("location", "")
+                default_summary = parsed.get("summary", "")
             else:
                 st.warning("未能解析出有效信息，请检查文本格式或手动填写")
     
@@ -895,6 +901,7 @@ elif page == "🎯 智能匹配":
                         default_education = parsed.get("education", "本科")
                         default_desired_salary = int(parsed.get("salary_min", 30000) / 1000)
                         default_location = parsed.get("location", "")
+                        default_summary = parsed.get("summary", "")
                     else:
                         st.warning("未能解析出有效信息，请手动填写")
                         
@@ -925,6 +932,15 @@ elif page == "🎯 智能匹配":
             location = st.text_input("期望地点", value=default_location, placeholder="北京")
             prefer_remote = st.checkbox("接受远程办公", value=default_prefer_remote)
         
+        # 个人简介输入
+        summary = st.text_area(
+            "个人简介 (可选)",
+            value=default_summary,
+            placeholder="简单介绍自己的工作经验、技术栈、项目经验等，用于语义匹配...",
+            height=100,
+            help="填写个人简介可以提高匹配精度，系统会分析简介内容与职位描述的匹配度"
+        )
+        
         if st.form_submit_button("🎯 开始匹配", type="primary"):
             if not job_title and not skills:
                 st.warning("请至少填写期望职位或技能")
@@ -945,6 +961,7 @@ elif page == "🎯 智能匹配":
                     desired_salary_max=desired_salary * 1000 * 1.2 if desired_salary > 0 else None,
                     desired_locations=[loc.strip() for loc in location.replace("，", ",").split(",") if loc.strip()] if location else [],
                     prefer_remote=prefer_remote,
+                    resume_text=summary if summary else None,
                 )
                 
                 job_manager.create_user_profile(user)
