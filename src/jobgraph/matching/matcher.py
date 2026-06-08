@@ -302,27 +302,28 @@ class JobMatcher:
                 return [None] * len(jobs)
 
             # 限制职位数量，避免 prompt 过长
-            max_jobs = 10
+            max_jobs = 8
             jobs_to_eval = jobs[:max_jobs]
             remaining_jobs = jobs[max_jobs:]
 
-            # 构建简化 prompt（减少 token 数量）
+            # 构建 prompt（包含职位描述，但限制长度）
             job_list = "\n".join([
-                f"{i+1}. {job.get('title', '')}"
+                f"{i+1}. {job.get('title', '')} - {(job.get('description', '') or '')[:150]}"
                 for i, job in enumerate(jobs_to_eval)
             ])
 
-            user_skills = ", ".join(user_profile.get("skills", [])[:5])  # 只取前5个技能
+            user_skills = ", ".join(user_profile.get("skills", [])[:8])
             user_exp = user_profile.get("experience_years", 0)
+            user_title = user_profile.get("current_title", "未提供")
 
-            prompt = f"""评估匹配度（0-100），用逗号分隔，只返回数字。
+            prompt = f"""评估用户与岗位的匹配度。
 
-用户：{user_exp}年经验，技能：{user_skills}
+用户：{user_title}，{user_exp}年，技能：{user_skills}
 
 岗位：
 {job_list}
 
-示例输出：85,72,60,90,45"""
+返回每个岗位匹配度（0-100），逗号分隔，只返回数字。"""
 
             from langchain_core.messages import HumanMessage
             response = llm.invoke([HumanMessage(content=prompt)])
