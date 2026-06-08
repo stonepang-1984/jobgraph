@@ -939,10 +939,10 @@ elif page == "🎯 智能匹配":
                     current_title=job_title,
                     experience_years=experience_years,
                     education=education if education != "不限" else None,
-                    skills=[s.strip() for s in skills.split(",") if s.strip()],
+                    skills=[s.strip() for s in skills.replace("，", ",").split(",") if s.strip()],
                     desired_salary_min=desired_salary * 1000 * 0.8 if desired_salary > 0 else None,
                     desired_salary_max=desired_salary * 1000 * 1.2 if desired_salary > 0 else None,
-                    desired_locations=[location] if location else [],
+                    desired_locations=[loc.strip() for loc in location.replace("，", ",").split(",") if loc.strip()] if location else [],
                     prefer_remote=prefer_remote,
                 )
                 
