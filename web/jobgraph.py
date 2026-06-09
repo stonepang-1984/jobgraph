@@ -211,12 +211,15 @@ elif page == "📄 简历上传":
         
         st.divider()
     
-    # 上传区域
-    uploaded_file = st.file_uploader(
-        "选择简历文件",
-        type=["pdf", "docx"],
-        help="支持 PDF、DOCX 格式",
-    )
+    # 上传区域（只有没有保存的简历时才显示）
+    if not saved_profile:
+        uploaded_file = st.file_uploader(
+            "选择简历文件",
+            type=["pdf", "docx"],
+            help="支持 PDF、DOCX 格式",
+        )
+    else:
+        uploaded_file = None
     
     # 如果有上传文件，解析它；否则使用已保存的
     profile = None
@@ -265,7 +268,7 @@ elif page == "📄 简历上传":
     elif saved_profile:
         # 使用已保存的简历信息
         profile = type('Profile', (), saved_profile)()
-        st.info("📋 使用已保存的简历信息")
+        # 不显示提示，因为上面已经显示了"已有简历信息"
     
     if profile:
         st.divider()
