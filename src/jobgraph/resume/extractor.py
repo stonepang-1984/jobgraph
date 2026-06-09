@@ -306,11 +306,11 @@ SKILL_STANDARD_MAP = {
 class ResumeExtractor:
     """简历信息提取器"""
 
-    def __init__(self, use_llm: bool = True, llm_timeout: int = 10):
+    def __init__(self, use_llm: bool = True, llm_timeout: int = 600):
         """
         Args:
             use_llm: 是否使用 LLM 提取（需要配置 OpenAI API）
-            llm_timeout: LLM 调用超时时间（秒）
+            llm_timeout: LLM 调用超时时间（秒），默认 10 分钟
         """
         self.use_llm = use_llm
         self.llm_timeout = llm_timeout
