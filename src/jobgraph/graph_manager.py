@@ -378,6 +378,9 @@ class JobGraphManager:
             u.desired_salary_min = $desired_salary_min,
             u.desired_salary_max = $desired_salary_max,
             u.prefer_remote = $prefer_remote,
+            u.source = $source,
+            u.device_id = $device_id,
+            u.created_at = COALESCE(u.created_at, datetime()),
             u.updated_at = datetime()
         """
         neo4j_client.execute_write(
@@ -396,6 +399,8 @@ class JobGraphManager:
                 "desired_salary_min": user.desired_salary_min,
                 "desired_salary_max": user.desired_salary_max,
                 "prefer_remote": user.prefer_remote,
+                "source": user.source,
+                "device_id": user.device_id,
             },
         )
 

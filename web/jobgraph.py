@@ -355,6 +355,8 @@ elif page == "📄 简历上传":
                     desired_salary_max=desired_salary * 1000 * 1.2 if desired_salary > 0 else None,
                     desired_locations=[location] if location else [],
                     prefer_remote=prefer_remote,
+                    source="resume",
+                    device_id=user_manager.device_id,
                 )
                 
                 # 保存用户档案
@@ -968,6 +970,8 @@ elif page == "🎯 智能匹配":
                     desired_locations=[loc.strip() for loc in location.replace("，", ",").split(",") if loc.strip()] if location else [],
                     prefer_remote=prefer_remote,
                     resume_text=summary if summary else None,
+                    source="smart",
+                    device_id=user_manager.device_id,
                 )
                 
                 job_manager.create_user_profile(user)

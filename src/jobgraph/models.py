@@ -259,6 +259,8 @@ class UserProfile:
     resume_text: str | None = None
 
     # 元数据
+    source: str | None = None  # 来源：resume/smart/manual
+    device_id: str | None = None  # 设备标识
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
