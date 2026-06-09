@@ -379,12 +379,7 @@ class ResumeExtractor:
             return False
 
     def _extract_with_llm(self, text: str) -> ExtractedProfile:
-        """使用 LLM 提取信息（带超时）"""
-        import signal
-        
-        def timeout_handler(signum, frame):
-            raise TimeoutError("LLM 调用超时")
-        
+        """使用 LLM 提取信息"""
         try:
             from langchain_openai import ChatOpenAI
             from config.settings import settings
@@ -445,24 +440,11 @@ class ResumeExtractor:
                 ("human", prompt),
             ])
 
-            # 设置超时
-            old_handler = signal.signal(signal.SIGALRM, timeout_handler)
-            signal.alarm(self.llm_timeout)
-            
-            try:
-                chain = chat_prompt | self._llm.with_structured_output(ExtractedProfile)
-                result = chain.invoke({"text": text[:4000]})  # 限制长度避免 token 超限
-                signal.alarm(0)  # 取消超时
-                logger.info(f"LLM 提取完成，识别到 {len(result.skills)} 个技能")
-                return result
-            finally:
-                signal.alarm(0)  # 确保取消超时
-                signal.signal(signal.SIGALRM, old_handler)
+            chain = chat_prompt | self._llm.with_structured_output(ExtractedProfile)
+            result = chain.invoke({"text": text[:4000]})  # 限制长度避免 token 超限
+            logger.info(f"LLM 提取完成，识别到 {len(result.skills)} 个技能")
+            return result
 
-        except TimeoutError:
-            logger.warning(f"LLM 提取超时 ({self.llm_timeout}s)，降级到规则提取")
-            self._llm_available = False  # 标记 LLM 不可用
-            return self._extract_with_rules(text)
         except ImportError:
             logger.warning("未安装 langchain_openai，使用规则提取")
             return self._extract_with_rules(text)
