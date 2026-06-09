@@ -184,7 +184,10 @@ elif page == "📄 简历上传":
     st.divider()
     
     # 获取用户 ID（用于持久化存储）
-    user_id = user_manager.device_id
+    import hashlib
+    user_id = hashlib.md5(
+        f"{user_manager.device_id}_resume".encode()
+    ).hexdigest()[:16]
     
     # 从本地文件加载已保存的简历信息
     saved_profile = user_data_manager.load_resume_profile(user_id)
@@ -332,7 +335,7 @@ elif page == "📄 简历上传":
             st.info("💡 请确认以上信息是否准确，您可以在此修改")
             
             if st.form_submit_button("🎯 开始匹配", type="primary"):
-                # 创建用户档案
+                # 使用统一的 user_id（与保存简历时一致）
                 import hashlib
                 
                 user_id = hashlib.md5(
