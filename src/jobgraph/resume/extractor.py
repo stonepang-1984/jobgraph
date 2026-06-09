@@ -394,12 +394,17 @@ class ResumeExtractor:
                     ollama_url = settings.llm.ollama_base_url
                     ollama_model = settings.llm.ollama_model
                     
+                    # 创建带超时配置的 http_client
+                    import httpx
+                    http_client = httpx.Client(timeout=httpx.Timeout(self.llm_timeout, connect=10.0))
+                    
                     self._llm = ChatOpenAI(
                         model=ollama_model,
                         api_key="ollama",  # Ollama 不需要真实的 API Key
                         base_url=f"{ollama_url}/v1",
                         temperature=0,
                         request_timeout=self.llm_timeout,
+                        http_client=http_client,
                     )
                     logger.info(f"使用 Ollama: {ollama_url}, 模型: {ollama_model}")
                 else:
