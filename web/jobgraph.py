@@ -1348,17 +1348,97 @@ elif page == "🔄 数据同步":
     
     st.info("从数据中心同步最新的公司、岗位、评价数据")
     
+    # 导入自动同步模块
+    from src.jobgraph.sync.auto_sync import auto_sync
+    
+    # 获取同步状态
+    sync_status = auto_sync.get_status_info()
+    
+    # 显示同步状态
+    st.subheader("📊 同步状态")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        connected = sync_status.get("connected", False)
+        st.metric("连接状态", "✅ 已连接" if connected else "❌ 未连接")
+    with col2:
+        st.metric("同步次数", sync_status.get("sync_count", 0))
+    with col3:
+        st.metric("公司数量", sync_status.get("companies_synced", 0))
+    with col4:
+        st.metric("职位数量", sync_status.get("jobs_synced", 0))
+    
+    last_sync = sync_status.get("last_sync")
+    if last_sync:
+        st.caption(f"上次同步: {last_sync[:19]}")
+    
+    st.divider()
+    
     # 同步模式选择
     sync_mode = st.radio(
         "选择同步模式",
-        ["📦 离线数据包", "🌐 Tailscale 直连", "☁️ 云服务器"],
+        ["🔄 自动同步", "📦 离线数据包", "🌐 手动同步"],
         horizontal=True,
     )
     
     st.divider()
     
-    # 场景A: 离线数据包
-    if sync_mode == "📦 离线数据包":
+    # 自动同步
+    if sync_mode == "🔄 自动同步":
+        st.subheader("🔄 自动同步配置")
+        
+        with st.form("auto_sync_config"):
+            server_url = st.text_input(
+                "数据中心地址",
+                value=auto_sync.config.get("server_url", ""),
+                placeholder="http://192.168.x.x:8000",
+                help="admin 仓库的 API 服务地址"
+            )
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                auto_sync_enabled = st.checkbox("启用自动同步", value=auto_sync.config.get("auto_sync", False))
+                sync_on_startup = st.checkbox("启动时同步", value=auto_sync.config.get("sync_on_startup", True))
+            with col2:
+                sync_interval = st.selectbox(
+                    "同步频率",
+                    ["每天", "每周", "每月"],
+                    index=0,
+                )
+            
+            if st.form_submit_button("💾 保存配置"):
+                interval_map = {"每天": 86400, "每周": 604800, "每月": 2592000}
+                auto_sync.save_config({
+                    "server_url": server_url,
+                    "auto_sync": auto_sync_enabled,
+                    "sync_on_startup": sync_on_startup,
+                    "sync_interval": interval_map.get(sync_interval, 86400),
+                })
+                auto_sync.server_url = server_url
+                st.success("✅ 配置已保存")
+                st.rerun()
+        
+        st.divider()
+        
+        # 立即同步按钮
+        if st.button("🔄 立即同步", type="primary"):
+            if not auto_sync.server_url:
+                st.warning("请先配置数据中心地址")
+            else:
+                with st.spinner("正在同步..."):
+                    result = auto_sync.check_and_sync()
+                    
+                    if result.get("success"):
+                        st.success(f"✅ 同步完成！")
+                        st.write(f"- 公司: {result.get('companies', 0)} 家")
+                        st.write(f"- 职位: {result.get('jobs', 0)} 个")
+                        st.write(f"- 评价: {result.get('reviews', 0)} 条")
+                        st.rerun()
+                    else:
+                        st.error(f"同步失败: {result.get('error', '未知错误')}")
+    
+    # 离线数据包
+    elif sync_mode == "📦 离线数据包":
         st.subheader("📦 离线数据包导入")
         
         st.markdown("""
@@ -1366,12 +1446,12 @@ elif page == "🔄 数据同步":
         - 从数据管理员处获取数据包
         
         **操作步骤**:
-        1. 从数据管理员获取 `.zip` 数据包
+        1. 从数据管理员获取 `.json` 数据包
         2. 上传数据包
         3. 点击导入
         """)
         
-        uploaded_file = st.file_uploader("上传数据包", type=["zip"])
+        uploaded_file = st.file_uploader("上传数据包", type=["json"])
         
         if uploaded_file and st.button("导入数据包", type="primary"):
             with st.spinner("正在导入..."):
@@ -1380,91 +1460,117 @@ elif page == "🔄 数据同步":
                     import os
                     
                     # 保存上传文件
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".json") as tmp:
                         tmp.write(uploaded_file.getbuffer())
                         tmp_path = tmp.name
                     
                     # 导入
-                    from src.jobgraph.sync.data_sync import data_sync
-                    stats = data_sync.import_package(tmp_path)
+                    import json
+                    with open(tmp_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    
+                    # 导入到 Neo4j
+                    from src.graph.neo4j_client import neo4j_client
+                    
+                    companies_count = 0
+                    jobs_count = 0
+                    reviews_count = 0
+                    
+                    # 导入公司
+                    for company in data.get("companies", []):
+                        try:
+                            cypher = """
+                            MERGE (c:Company {id: $id})
+                            SET c.name = $name, c.industry = $industry, c.updated_at = datetime()
+                            """
+                            neo4j_client.execute_write(cypher, company)
+                            companies_count += 1
+                        except Exception as e:
+                            logger.error(f"导入公司失败: {e}")
+                    
+                    # 导入职位
+                    for job in data.get("jobs", []):
+                        try:
+                            cypher = """
+                            MERGE (j:Job {id: $id})
+                            SET j.title = $title, j.company_name = $company_name,
+                                j.description = $description, j.requirements = $requirements,
+                                j.updated_at = datetime()
+                            WITH j
+                            MATCH (c:Company {id: $company_id})
+                            MERGE (c)-[:HAS_JOB]->(j)
+                            """
+                            neo4j_client.execute_write(cypher, job)
+                            jobs_count += 1
+                        except Exception as e:
+                            logger.error(f"导入职位失败: {e}")
+                    
+                    # 导入评价
+                    for review in data.get("reviews", []):
+                        try:
+                            cypher = """
+                            MERGE (r:Review {id: $id})
+                            SET r.company_id = $company_id, r.title = $title,
+                                r.overall_rating = $overall_rating, r.updated_at = datetime()
+                            WITH r
+                            MATCH (c:Company {id: $company_id})
+                            MERGE (c)-[:HAS_REVIEW]->(r)
+                            """
+                            neo4j_client.execute_write(cypher, review)
+                            reviews_count += 1
+                        except Exception as e:
+                            logger.error(f"导入评价失败: {e}")
                     
                     # 清理
                     os.unlink(tmp_path)
                     
                     st.success("✅ 数据包导入成功！")
-                    st.json(stats)
+                    st.write(f"- 公司: {companies_count} 家")
+                    st.write(f"- 职位: {jobs_count} 个")
+                    st.write(f"- 评价: {reviews_count} 条")
                     
                 except Exception as e:
                     st.error(f"导入失败: {e}")
     
-    # 场景B: Tailscale 直连
-    elif sync_mode == "🌐 Tailscale 直连":
-        st.subheader("🌐 Tailscale 直连同步")
+    # 手动同步
+    elif sync_mode == "🌐 手动同步":
+        st.subheader("🌐 手动同步")
         
-        st.markdown("""
-        **使用场景**: 
-        - 数据中心已部署 Tailscale
-        
-        **前置条件**:
-        1. 安装 Tailscale: https://tailscale.com/download
-        2. 加入数据中心的 Tailscale 网络
-        """)
-        
-        tailscale_url = st.text_input(
+        server_url = st.text_input(
             "数据中心地址",
-            placeholder="http://100.x.x.1:8000",
+            value=auto_sync.server_url,
+            placeholder="http://192.168.x.x:8000",
         )
         
         col1, col2 = st.columns(2)
         
         with col1:
             if st.button("测试连接"):
-                if tailscale_url:
+                if server_url:
+                    auto_sync.server_url = server_url
                     with st.spinner("测试中..."):
-                        try:
-                            import httpx
-                            response = httpx.get(f"{tailscale_url}/api/v1/status", timeout=5)
-                            if response.status_code == 200:
-                                st.success("✅ 连接成功！")
-                            else:
-                                st.error(f"连接失败: {response.status_code}")
-                        except Exception as e:
-                            st.error(f"连接失败: {e}")
+                        if auto_sync.test_connection():
+                            st.success("✅ 连接成功！")
+                        else:
+                            st.error("❌ 连接失败")
                 else:
                     st.warning("请输入数据中心地址")
         
         with col2:
             if st.button("立即同步", type="primary"):
-                if tailscale_url:
+                if server_url:
+                    auto_sync.server_url = server_url
                     with st.spinner("同步中..."):
-                        try:
-                            from src.jobgraph.sync.data_sync import data_sync
-                            stats = data_sync.sync_via_tailscale(tailscale_url)
+                        result = auto_sync.check_and_sync()
+                        
+                        if result.get("success"):
                             st.success("✅ 同步完成！")
-                            st.json(stats)
-                        except Exception as e:
-                            st.error(f"同步失败: {e}")
+                            st.json(result)
+                            st.rerun()
+                        else:
+                            st.error(f"同步失败: {result.get('error', '未知错误')}")
                 else:
                     st.warning("请输入数据中心地址")
-    
-    # 场景C: 云服务器
-    elif sync_mode == "☁️ 云服务器":
-        st.subheader("☁️ 云服务器同步")
-        
-        cloud_url = st.text_input("云服务器地址", placeholder="https://api.example.com")
-        
-        if st.button("立即同步", type="primary"):
-            if cloud_url:
-                with st.spinner("同步中..."):
-                    try:
-                        from src.jobgraph.sync.data_sync import data_sync
-                        stats = data_sync.sync_via_cloud(cloud_url)
-                        st.success("✅ 同步完成！")
-                        st.json(stats)
-                    except Exception as e:
-                        st.error(f"同步失败: {e}")
-            else:
-                st.warning("请输入云服务器地址")
 
 
 # ============================================================
