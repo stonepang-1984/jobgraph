@@ -253,6 +253,16 @@ class JobGraphManager:
 
     def create_review(self, review: Review) -> None:
         """创建员工评价."""
+        # 先检查公司是否存在
+        company_check = neo4j_client.execute_query(
+            "MATCH (c:Company {id: $company_id}) RETURN c.id AS id",
+            {"company_id": review.company_id}
+        )
+        
+        if not company_check:
+            logger.warning(f"公司不存在，拒绝创建评价: company_id={review.company_id}")
+            return
+        
         cypher = """
         CREATE (r:Review {
             id: $id,
