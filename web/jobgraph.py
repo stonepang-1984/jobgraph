@@ -43,70 +43,64 @@ st.set_page_config(
 st.title("🔒 JobGraph - 私密求职图谱")
 st.markdown("**你的求职，你做主** — 完全免费，数据仅存在本地")
 
+st.divider()
+
 
 # ============================================================
-# Sidebar
+# Navigation (顶部导航栏)
 # ============================================================
 
-with st.sidebar:
-    st.header("🔍 功能导航")
-    
-    # 页面列表
-    pages = [
-        "🏠 首页",
-        "📄 简历上传",
-        "🎯 智能匹配",
-        "🔍 岗位搜索",
-        "🏢 公司画像",
-        "⚠️ 避坑指南",
-        "📊 薪资行情",
-        "✏️ 贡献数据",
-        "🔄 数据同步",
-        "👤 用户中心",
-        "⚙️ LLM 配置",
-    ]
-    
-    # 获取当前页面索引
-    current_page = st.session_state.get("page", pages[0])
-    if current_page in pages:
-        page_index = pages.index(current_page)
-    else:
-        page_index = 0
-    
-    page = st.radio(
-        "选择功能",
-        pages,
-        index=page_index,
-    )
-    
-    # 保存当前页面到 session
-    st.session_state["page"] = page
-    
-    st.divider()
-    
-    # 免费标识
-    st.success("🎁 **完全免费** - 所有功能均可使用")
-    
-    # Privacy badge
-    st.info("🔒 **私密模式**\n\n数据仅存在本地，不留痕迹")
-    
-    st.divider()
-    
-    # User info
+# 页面列表
+pages = [
+    "🏠 首页",
+    "📄 简历上传",
+    "🎯 智能匹配",
+    "🔍 岗位搜索",
+    "🏢 公司画像",
+    "⚠️ 避坑指南",
+    "📊 薪资行情",
+    "✏️ 贡献数据",
+    "🔄 数据同步",
+    "👤 用户中心",
+    "⚙️ LLM 配置",
+]
+
+# 获取当前页面索引
+current_page = st.session_state.get("page", pages[0])
+if current_page in pages:
+    page_index = pages.index(current_page)
+else:
+    page_index = 0
+
+# 顶部水平导航
+page = st.radio(
+    "选择功能",
+    pages,
+    index=page_index,
+    horizontal=True,
+    label_visibility="collapsed",
+)
+
+# 保存当前页面到 session
+st.session_state["page"] = page
+
+# 用户信息栏
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    st.success("🎁 **完全免费**")
+with col2:
+    st.info("🔒 **私密模式**")
+with col3:
     user_stats = user_manager.get_user_stats()
-    st.markdown(f"👤 **{user_stats['nickname']}**")
-    st.caption(f"等级: Lv.{user_stats['level']} | 积分: {user_stats['points']}")
-    
-    # Statistics
-    st.header("📊 数据统计")
+    st.caption(f"👤 {user_stats['nickname']} | Lv.{user_stats['level']}")
+with col4:
     try:
         stats = job_manager.get_stats()
-        st.metric("🏢 公司", stats.get("companies", 0))
-        st.metric("💼 岗位", stats.get("jobs", 0))
-        st.metric("💬 评价", stats.get("reviews", 0))
-        st.metric("⚠️ 坑点", stats.get("pitfalls", 0))
-    except Exception as e:
-        st.error(f"获取统计失败: {e}")
+        st.caption(f"📊 {stats.get('companies', 0)} 公司 | {stats.get('jobs', 0)} 岗位")
+    except:
+        pass
+
+st.divider()
 
 
 # ============================================================
