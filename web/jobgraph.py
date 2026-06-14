@@ -43,11 +43,9 @@ st.set_page_config(
 st.title("🔒 JobGraph - 私密求职图谱")
 st.markdown("**你的求职，你做主** — 完全免费，数据仅存在本地")
 
-st.divider()
-
 
 # ============================================================
-# Navigation (顶部导航栏)
+# Sidebar
 # ============================================================
 
 # 页面列表
@@ -65,42 +63,61 @@ pages = [
     "⚙️ LLM 配置",
 ]
 
-# 获取当前页面索引
+# 获取当前页面
 current_page = st.session_state.get("page", pages[0])
-if current_page in pages:
-    page_index = pages.index(current_page)
-else:
-    page_index = 0
 
-# 顶部水平导航
-page = st.radio(
-    "选择功能",
-    pages,
-    index=page_index,
-    horizontal=True,
-    label_visibility="collapsed",
-)
-
-# 保存当前页面到 session
-st.session_state["page"] = page
-
-# 用户信息栏
-col1, col2, col3, col4 = st.columns(4)
-with col1:
+with st.sidebar:
+    # 导航标题
+    st.markdown("### 🔍 功能导航")
+    st.divider()
+    
+    # 使用按钮实现导航，选中项有颜色差异
+    for p in pages:
+        if p == current_page:
+            # 选中状态：使用 primary 按钮样式
+            st.button(
+                f"▶ {p}",
+                key=f"nav_{p}",
+                use_container_width=True,
+                type="primary",
+            )
+        else:
+            # 未选中状态：使用普通按钮
+            if st.button(
+                p,
+                key=f"nav_{p}",
+                use_container_width=True,
+            ):
+                st.session_state["page"] = p
+                st.rerun()
+    
+    st.divider()
+    
+    # 免费标识
     st.success("🎁 **完全免费**")
-with col2:
-    st.info("🔒 **私密模式**")
-with col3:
+    
+    # Privacy badge
+    st.info("🔒 **私密模式**\n\n数据仅存在本地")
+    
+    st.divider()
+    
+    # User info
     user_stats = user_manager.get_user_stats()
-    st.caption(f"👤 {user_stats['nickname']} | Lv.{user_stats['level']}")
-with col4:
+    st.markdown(f"👤 **{user_stats['nickname']}**")
+    st.caption(f"等级: Lv.{user_stats['level']} | 积分: {user_stats['points']}")
+    
+    # Statistics
+    st.markdown("### 📊 数据统计")
     try:
         stats = job_manager.get_stats()
-        st.caption(f"📊 {stats.get('companies', 0)} 公司 | {stats.get('jobs', 0)} 岗位")
-    except:
+        st.metric("🏢 公司", stats.get("companies", 0))
+        st.metric("💼 岗位", stats.get("jobs", 0))
+        st.metric("💬 评价", stats.get("reviews", 0))
+    except Exception:
         pass
 
-st.divider()
+# 设置当前页面
+page = current_page
 
 
 # ============================================================
