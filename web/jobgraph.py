@@ -28,6 +28,7 @@ from src.jobgraph.matching import job_matcher
 from src.jobgraph.config_manager import config_manager
 from src.jobgraph.user_data_manager import user_data_manager
 from src.jobgraph.job_expectation_parser import job_expectation_parser
+from src.jobgraph.notify import subscription_manager, notifier
 
 
 # ============================================================
@@ -54,6 +55,7 @@ pages = [
     "📄 简历上传",
     "🎯 智能匹配",
     "🔍 岗位搜索",
+    "🔔 订阅提醒",
     "🏢 公司画像",
     "⚠️ 避坑指南",
     "📊 薪资行情",
@@ -575,6 +577,128 @@ elif page == "📄 简历上传":
         - 💼 当前职位
         - 📜 专业证书
         """)
+
+# ============================================================
+# Subscription & Notifications
+# ============================================================
+
+elif page == "🔔 订阅提醒":
+    st.header("🔔 订阅提醒")
+    
+    st.info("订阅关键词，有新职位时自动提醒")
+    
+    # 获取用户 ID
+    import hashlib
+    user_id = hashlib.md5(f"{user_manager.device_id}_sub".encode()).hexdigest()[:16]
+    
+    # 添加订阅
+    st.subheader("📝 添加订阅")
+    
+    with st.form("add_subscription"):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            keywords = st.text_input(
+                "关键词 (逗号分隔)",
+                placeholder="Java, Python, 后端",
+                help="职位标题或技能中包含这些关键词时通知您"
+            )
+            city = st.text_input("城市", value="武汉", placeholder="武汉")
+        
+        with col2:
+            salary_min = st.number_input("最低薪资 (K)", 0, 100, 0, help="0 表示不限")
+            notify_method = st.selectbox("通知方式", ["应用内通知", "邮件", "微信"])
+        
+        if st.form_submit_button("✅ 添加订阅", type="primary"):
+            if keywords:
+                sub = subscription_manager.add_subscription(
+                    user_id=user_id,
+                    keywords=[k.strip() for k in keywords.split(",") if k.strip()],
+                    city=city,
+                    salary_min=salary_min * 1000 if salary_min > 0 else None,
+                )
+                st.success(f"✅ 订阅成功！关键词: {', '.join(sub['keywords'])}")
+                st.rerun()
+            else:
+                st.warning("请输入关键词")
+    
+    st.divider()
+    
+    # 订阅列表
+    st.subheader("📋 我的订阅")
+    
+    subs = subscription_manager.get_user_subscriptions(user_id)
+    
+    if subs:
+        for sub in subs:
+            col1, col2, col3 = st.columns([3, 2, 1])
+            
+            with col1:
+                st.write(f"**关键词**: {', '.join(sub['keywords'])}")
+            with col2:
+                st.write(f"**城市**: {sub.get('city', '不限')}")
+            with col3:
+                if st.button("🗑️", key=f"del_sub_{sub['id']}"):
+                    subscription_manager.remove_subscription(sub['id'])
+                    st.rerun()
+    else:
+        st.info("暂无订阅，添加订阅后有新职位时会自动提醒")
+    
+    st.divider()
+    
+    # 通知列表
+    st.subheader("🔔 新职位通知")
+    
+    # 标记全部已读按钮
+    col1, col2 = st.columns([3, 1])
+    with col2:
+        if st.button("全部已读"):
+            notifier.mark_all_read(user_id)
+            st.rerun()
+    
+    notifs = notifier.get_user_notifications(user_id)
+    
+    if notifs:
+        for notif in notifs[:20]:
+            read_icon = "📖" if notif["read"] else "📩"
+            
+            with st.expander(f"{read_icon} {notif['job_title']} @ {notif['company_name']}"):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.write(f"**职位**: {notif['job_title']}")
+                    st.write(f"**公司**: {notif['company_name']}")
+                    st.write(f"**地点**: {notif.get('location', '未知')}")
+                
+                with col2:
+                    salary_min = notif.get('salary_min') or 0
+                    salary_max = notif.get('salary_max') or 0
+                    if salary_min or salary_max:
+                        st.write(f"**薪资**: {salary_min/1000:.0f}-{salary_max/1000:.0f}K")
+                    
+                    skills = notif.get('skills', [])
+                    if skills:
+                        st.write(f"**技能**: {', '.join(skills[:5])}")
+                
+                # 标记已读
+                if not notif["read"]:
+                    notifier.mark_read(notif["id"])
+    else:
+        st.info("暂无通知")
+    
+    # 订阅统计
+    st.divider()
+    sub_stats = subscription_manager.get_stats()
+    notif_stats = notifier.get_stats(user_id)
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("活跃订阅", sub_stats["active_subscriptions"])
+    with col2:
+        st.metric("总通知", notif_stats["total"])
+    with col3:
+        st.metric("未读通知", notif_stats["unread"])
+
 
 elif page == "🔍 岗位搜索":
     st.header("🔍 岗位搜索")
