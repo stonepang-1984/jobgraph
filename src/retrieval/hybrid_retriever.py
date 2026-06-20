@@ -1,6 +1,5 @@
 """Hybrid retriever combining vector and graph retrieval."""
 
-
 from loguru import logger
 
 from config.settings import settings

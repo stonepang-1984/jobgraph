@@ -161,7 +161,6 @@ class VideoProcessor:
         """Create video segments from scenes."""
         import hashlib
 
-
         segments = []
         transcript_segments = transcript.get("segments", [])
 

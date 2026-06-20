@@ -12,16 +12,18 @@ class TestLicenseManager:
     def test_init_with_trial(self):
         """Test initialization with trial."""
         # Mock _load_license to simulate fresh trial
-        with patch.object(SecureLicenseManager, '_load_license') as mock_load:
+        with patch.object(SecureLicenseManager, "_load_license") as mock_load:
+
             def simulate_load(self):
                 self.is_pro = True
                 self.is_trial = True
                 self.trial_expire_at = datetime.now() + timedelta(days=7)
                 self.expire_at = self.trial_expire_at
+
             mock_load.side_effect = simulate_load
-            
+
             manager = SecureLicenseManager()
-            
+
             # Fresh install should have trial
             assert manager.is_pro is True
             assert manager.is_trial is True
@@ -76,17 +78,19 @@ class TestLicenseManager:
     def test_get_license_info_trial(self):
         """Test getting license info with trial."""
         # Mock _load_license to simulate active trial
-        with patch.object(SecureLicenseManager, '_load_license') as mock_load:
+        with patch.object(SecureLicenseManager, "_load_license") as mock_load:
+
             def simulate_load(self):
                 self.is_pro = True
                 self.is_trial = True
                 self.trial_expire_at = datetime.now() + timedelta(days=5)
                 self.expire_at = self.trial_expire_at
+
             mock_load.side_effect = simulate_load
-            
+
             manager = SecureLicenseManager()
             info = manager.get_license_info()
-            
+
             assert info["is_pro"] is True
             assert info["is_trial"] is True
             assert info["days_remaining"] > 0

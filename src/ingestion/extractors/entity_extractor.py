@@ -1,6 +1,5 @@
 """Entity and relation extraction using LLM."""
 
-
 from loguru import logger
 from pydantic import BaseModel, Field
 

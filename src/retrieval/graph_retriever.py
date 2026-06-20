@@ -1,7 +1,5 @@
 """Graph traversal retrieval."""
 
-
-
 from config.settings import settings
 from src.graph.neo4j_client import neo4j_client
 from src.retrieval.vector_retriever import RetrievalResult

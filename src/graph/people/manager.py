@@ -1,6 +1,5 @@
 """People graph manager - CRUD operations for person entities."""
 
-
 from loguru import logger
 
 from src.graph.neo4j_client import neo4j_client
