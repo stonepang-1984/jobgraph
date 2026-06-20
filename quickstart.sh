@@ -134,8 +134,19 @@ print(result[0]['cnt'] if result else 0)
     
     print_info "导入初始数据..."
     
-    # 使用新的导入脚本
-    if [ -f scripts/import_initial_data.py ]; then
+    # 优先从 admin 数据导入
+    if [ -f data/initial/admin_data.json ]; then
+        print_info "从 admin 数据导入..."
+        PYTHONPATH=. $PYTHON scripts/import_from_admin.py --file data/initial/admin_data.json 2>/dev/null || {
+            print_warning "admin 数据导入失败，尝试初始数据..."
+            # 备用：使用初始数据脚本
+            if [ -f scripts/import_initial_data.py ]; then
+                PYTHONPATH=. $PYTHON scripts/import_initial_data.py 2>/dev/null || {
+                    print_warning "数据导入可能失败，请检查日志"
+                }
+            fi
+        }
+    elif [ -f scripts/import_initial_data.py ]; then
         PYTHONPATH=. $PYTHON scripts/import_initial_data.py 2>/dev/null || {
             print_warning "数据导入可能失败，请检查日志"
         }
