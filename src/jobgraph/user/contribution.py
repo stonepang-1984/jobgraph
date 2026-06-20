@@ -42,7 +42,7 @@ class ContributionManager:
         review_id = hashlib.md5(f"{company_id}_{datetime.now().isoformat()}".encode()).hexdigest()[:16]
 
         # 获取用户信息
-        user_data = user_manager.get_user_data()
+        user_manager.get_user_data()
 
         # 写入数据库
         cypher = """
@@ -118,7 +118,7 @@ class ContributionManager:
         pitfall_id = hashlib.md5(f"{company_id}_{pitfall_type}_{datetime.now().isoformat()}".encode()).hexdigest()[:16]
 
         # 获取用户信息
-        user_data = user_manager.get_user_data()
+        user_manager.get_user_data()
 
         # 写入数据库
         cypher = """

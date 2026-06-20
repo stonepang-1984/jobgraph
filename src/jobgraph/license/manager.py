@@ -223,7 +223,7 @@ class SecureLicenseManager:
         # 试用模式使用固定密钥
         if self.is_trial:
             trial_key = f"trial-{self.device_id}"
-            base_key = hashlib.sha256(trial_key.encode()).digest()
+            hashlib.sha256(trial_key.encode()).digest()
             modules = ["advanced_matching", "data_updater", "data_export"]
             for module in modules:
                 module_data = f"{module}|{self.device_id}|trial"
@@ -234,7 +234,7 @@ class SecureLicenseManager:
         if not self.license_key:
             return
 
-        base_key = hashlib.sha256(self.license_key.encode()).digest()
+        hashlib.sha256(self.license_key.encode()).digest()
         modules = ["advanced_matching", "data_updater", "data_export"]
         for module in modules:
             module_data = f"{module}|{self.device_id}|{self.license_key}"
@@ -302,7 +302,7 @@ class SecureLicenseManager:
             month = int(expire_str[2:4])
             day = int(expire_str[4:6])
             return datetime(year, month, day, 23, 59, 59)
-        except:
+        except Exception:
             return datetime.now() + timedelta(days=365)
 
     def _needs_reverification(self) -> bool:

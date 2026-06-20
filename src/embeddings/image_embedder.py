@@ -1,10 +1,10 @@
 """Image embedding using CLIP."""
 
 from pathlib import Path
-from typing import Union
 
 import numpy as np
 from loguru import logger
+from PIL import Image
 
 from config.settings import settings
 
@@ -41,16 +41,14 @@ class ImageEmbedder:
 
         logger.info("CLIP model loaded")
 
-    def embed_image(self, image: Union[str, Path, "PIL.Image.Image"]) -> list[float]:
+    def embed_image(self, image: str | Path | Image.Image) -> list[float]:
         """Embed a single image."""
         return self.embed_batch([image])[0]
 
-    def embed_batch(self, images: list[Union[str, Path, "PIL.Image.Image"]], batch_size: int = 16) -> list[list[float]]:
+    def embed_batch(self, images: list[str | Path | Image.Image], batch_size: int = 16) -> list[list[float]]:
         """Embed a batch of images."""
         if not images:
             return []
-
-        from PIL import Image
 
         # Load images if paths
         pil_images = []

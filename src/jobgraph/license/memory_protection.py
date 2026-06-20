@@ -205,7 +205,7 @@ class MemoryProtection:
         """检查内存完整性"""
         for region in self._protected_regions:
             try:
-                mem = region["mmap"]
+                region["mmap"]
                 # 检查内存是否被篡改
                 # 这里可以添加更复杂的完整性检查
             except Exception:

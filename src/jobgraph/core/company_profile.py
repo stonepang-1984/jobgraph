@@ -26,7 +26,7 @@ class CompanyProfile:
         """搜索公司"""
         cypher = """
         MATCH (c:Company)
-        WHERE c.name CONTAINS $query 
+        WHERE c.name CONTAINS $query
            OR c.name_en CONTAINS $query
            OR any(tag IN c.tags WHERE tag CONTAINS $query)
         RETURN c

@@ -98,7 +98,7 @@ class JobGraphManager:
         """搜索公司."""
         cypher = """
         MATCH (c:Company)
-        WHERE c.name CONTAINS $query 
+        WHERE c.name CONTAINS $query
            OR c.name_en CONTAINS $query
            OR any(tag IN c.tags WHERE tag CONTAINS $query)
         RETURN c
@@ -431,20 +431,20 @@ class JobGraphManager:
         MATCH (u:UserProfile {id: $user_id})
         MATCH (j:Job {is_active: true})
         OPTIONAL MATCH (c:Company)-[:HAS_JOB]->(j)
-        
+
         WITH u, j, c,
              // 技能匹配
              size([s IN u.skills WHERE s IN j.skills]) AS matched_skills,
              size(u.skills) AS user_skill_count,
              size(j.skills) AS job_skill_count,
-             
+
              // 薪资匹配
-             CASE 
+             CASE
                  WHEN j.salary_max >= u.desired_salary_min AND j.salary_min <= u.desired_salary_max THEN 1.0
                  WHEN j.salary_max >= u.desired_salary_min THEN 0.5
                  ELSE 0.0
              END AS salary_match,
-             
+
              // 地点匹配
              CASE
                  WHEN j.is_remote AND u.prefer_remote THEN 1.0
@@ -452,23 +452,23 @@ class JobGraphManager:
                  WHEN any(loc IN u.desired_locations WHERE j.location CONTAINS loc) THEN 1.0
                  ELSE 0.0
              END AS location_match
-        
+
         WITH u, j, c, matched_skills, salary_match, location_match,
-             CASE WHEN job_skill_count > 0 
-                  THEN toFloat(matched_skills) / job_skill_count 
-                  ELSE 0.0 
+             CASE WHEN job_skill_count > 0
+                  THEN toFloat(matched_skills) / job_skill_count
+                  ELSE 0.0
              END AS skill_score,
              CASE WHEN c.risk_level = 'low' THEN 0.9
                   WHEN c.risk_level = 'medium' THEN 0.6
                   WHEN c.risk_level = 'high' THEN 0.3
                   ELSE 0.1
              END AS risk_factor
-        
+
         WITH u, j, c, matched_skills,
              (skill_score * 0.4 + salary_match * 0.3 + location_match * 0.2 + risk_factor * 0.1) AS total_score
-        
+
         WHERE total_score > 0.3
-        
+
         RETURN j.id AS job_id,
                j.title AS job_title,
                j.company_name AS company_name,

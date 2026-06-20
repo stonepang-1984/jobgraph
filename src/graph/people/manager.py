@@ -306,8 +306,8 @@ class PeopleGraphManager:
 
     def get_person_network(self, person_id: str, depth: int = 2) -> dict:
         """Get person's network (colleagues, classmates, etc.)."""
-        cypher = """
-        MATCH path = (p:Person {id: $person_id})-[*1..{depth}]-(connected)
+        cypher = f"""
+        MATCH path = (p:Person {{id: $person_id}})-[*1..{depth}]-(connected)
         WHERE connected:Person OR connected:Company OR connected:University
         WITH p, connected, length(path) AS distance,
              [r IN relationships(path) | type(r)] AS rel_types
@@ -319,7 +319,7 @@ class PeopleGraphManager:
                rel_types
         ORDER BY distance
         LIMIT 50
-        """.format(depth=depth)
+        """
 
         results = neo4j_client.execute_query(cypher, {"person_id": person_id})
 
@@ -391,9 +391,9 @@ class PeopleGraphManager:
 
     def find_connection(self, person1_id: str, person2_id: str, max_depth: int = 4) -> list[dict]:
         """Find connection path between two persons."""
-        cypher = """
+        cypher = f"""
         MATCH path = shortestPath(
-            (p1:Person {id: $person1_id})-[*..{max_depth}]-(p2:Person {id: $person2_id})
+            (p1:Person {{id: $person1_id}})-[*..{max_depth}]-(p2:Person {{id: $person2_id}})
         )
         RETURN [n IN nodes(path) | {{
             id: n.id,
@@ -407,7 +407,7 @@ class PeopleGraphManager:
         length(path) AS hops
         ORDER BY hops
         LIMIT 3
-        """.format(max_depth=max_depth)
+        """
 
         return neo4j_client.execute_query(
             cypher,
