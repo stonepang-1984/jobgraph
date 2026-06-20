@@ -9,7 +9,7 @@
 
 import hashlib
 from datetime import datetime
-from typing import Optional
+
 from loguru import logger
 
 from src.graph.neo4j_client import neo4j_client
@@ -25,12 +25,12 @@ class ContributionManager:
         overall_rating: float,
         pros: str,
         cons: str,
-        title: Optional[str] = None,
-        salary_rating: Optional[float] = None,
-        work_life_rating: Optional[float] = None,
-        management_rating: Optional[float] = None,
-        reviewer_title: Optional[str] = None,
-        reviewer_tenure: Optional[str] = None,
+        title: str | None = None,
+        salary_rating: float | None = None,
+        work_life_rating: float | None = None,
+        management_rating: float | None = None,
+        reviewer_title: str | None = None,
+        reviewer_tenure: str | None = None,
         pitfall_tags: list[str] = None,
     ) -> dict:
         """提交评价"""
@@ -39,9 +39,7 @@ class ContributionManager:
             return {"success": False, "error": "今日贡献次数已用完"}
 
         # 生成 ID
-        review_id = hashlib.md5(
-            f"{company_id}_{datetime.now().isoformat()}".encode()
-        ).hexdigest()[:16]
+        review_id = hashlib.md5(f"{company_id}_{datetime.now().isoformat()}".encode()).hexdigest()[:16]
 
         # 获取用户信息
         user_data = user_manager.get_user_data()
@@ -109,7 +107,7 @@ class ContributionManager:
         pitfall_type: str,
         description: str,
         severity: int = 3,
-        evidence: Optional[str] = None,
+        evidence: str | None = None,
     ) -> dict:
         """提交坑点"""
         # 检查贡献限制
@@ -117,9 +115,7 @@ class ContributionManager:
             return {"success": False, "error": "今日贡献次数已用完"}
 
         # 生成 ID
-        pitfall_id = hashlib.md5(
-            f"{company_id}_{pitfall_type}_{datetime.now().isoformat()}".encode()
-        ).hexdigest()[:16]
+        pitfall_id = hashlib.md5(f"{company_id}_{pitfall_type}_{datetime.now().isoformat()}".encode()).hexdigest()[:16]
 
         # 获取用户信息
         user_data = user_manager.get_user_data()
@@ -174,8 +170,8 @@ class ContributionManager:
         job_title: str,
         salary_min: float,
         salary_max: float,
-        experience_years: Optional[int] = None,
-        education: Optional[str] = None,
+        experience_years: int | None = None,
+        education: str | None = None,
     ) -> dict:
         """提交薪资信息"""
         # 检查贡献限制
@@ -183,9 +179,7 @@ class ContributionManager:
             return {"success": False, "error": "今日贡献次数已用完"}
 
         # 生成 ID
-        salary_id = hashlib.md5(
-            f"{company_id}_{job_title}_{datetime.now().isoformat()}".encode()
-        ).hexdigest()[:16]
+        salary_id = hashlib.md5(f"{company_id}_{job_title}_{datetime.now().isoformat()}".encode()).hexdigest()[:16]
 
         # 写入数据库
         cypher = """
@@ -237,13 +231,13 @@ class ContributionManager:
         company_id: str,
         company_name: str,
         title: str,
-        location: Optional[str] = None,
-        salary_min: Optional[float] = None,
-        salary_max: Optional[float] = None,
-        experience_years: Optional[int] = None,
-        education: Optional[str] = None,
+        location: str | None = None,
+        salary_min: float | None = None,
+        salary_max: float | None = None,
+        experience_years: int | None = None,
+        education: str | None = None,
         skills: list[str] = None,
-        description: Optional[str] = None,
+        description: str | None = None,
         benefits: list[str] = None,
     ) -> dict:
         """提交职位信息"""
@@ -252,9 +246,7 @@ class ContributionManager:
             return {"success": False, "error": "今日贡献次数已用完"}
 
         # 生成 ID
-        job_id = hashlib.md5(
-            f"{company_id}_{title}_{datetime.now().isoformat()}".encode()
-        ).hexdigest()[:16]
+        job_id = hashlib.md5(f"{company_id}_{title}_{datetime.now().isoformat()}".encode()).hexdigest()[:16]
 
         # 写入数据库
         cypher = """

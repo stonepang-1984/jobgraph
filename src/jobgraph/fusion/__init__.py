@@ -8,10 +8,10 @@
 - 数据血缘追踪
 """
 
-from src.jobgraph.fusion.sources import DataSource, DataSourceType, SourceManager, source_manager, PREDEFINED_SOURCES
-from src.jobgraph.fusion.matcher import EntityMatcher, entity_matcher
 from src.jobgraph.fusion.engine import DataFusionEngine, DataQualityChecker, fusion_engine, quality_checker
 from src.jobgraph.fusion.lineage import DataLineage, data_lineage
+from src.jobgraph.fusion.matcher import EntityMatcher, entity_matcher
+from src.jobgraph.fusion.sources import PREDEFINED_SOURCES, DataSource, DataSourceType, SourceManager, source_manager
 
 __all__ = [
     # 数据来源

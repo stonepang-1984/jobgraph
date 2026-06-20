@@ -10,6 +10,7 @@ import json
 import uuid
 from datetime import datetime
 from pathlib import Path
+
 from loguru import logger
 
 
@@ -20,7 +21,7 @@ class Notifier:
         self.data_dir = Path(data_dir)
         self.notify_dir = self.data_dir / "notify"
         self.notify_dir.mkdir(parents=True, exist_ok=True)
-        
+
         self.notifs_file = self.notify_dir / "notifications.json"
         self.notifications = self._load_notifications()
 
@@ -28,7 +29,7 @@ class Notifier:
         """加载通知"""
         if self.notifs_file.exists():
             try:
-                with open(self.notifs_file, "r", encoding="utf-8") as f:
+                with open(self.notifs_file, encoding="utf-8") as f:
                     return json.load(f)
             except Exception:
                 return []

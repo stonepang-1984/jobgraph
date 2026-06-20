@@ -9,6 +9,7 @@
 """
 
 import re
+
 from loguru import logger
 
 
@@ -91,7 +92,7 @@ class PrivacyFilter:
                     replacement = self.REPLACEMENTS[privacy_type]
                     # 从后往前替换，避免位置偏移
                     for match in reversed(matches):
-                        filtered = filtered[:match.start()] + replacement + filtered[match.end():]
+                        filtered = filtered[: match.start()] + replacement + filtered[match.end() :]
                         filtered_count += 1
 
         # 可选：过滤姓名
@@ -101,7 +102,7 @@ class PrivacyFilter:
                 if matches:
                     replacement = self.REPLACEMENTS["name"]
                     for match in reversed(matches):
-                        filtered = filtered[:match.start()] + replacement + filtered[match.end():]
+                        filtered = filtered[: match.start()] + replacement + filtered[match.end() :]
                         filtered_count += 1
 
         if filtered_count > 0:
@@ -120,8 +121,16 @@ class PrivacyFilter:
         """
         # 需要移除的隐私字段
         privacy_fields = [
-            "name", "phone", "mobile", "email", "id_card", "identity",
-            "bank_card", "address", "home_address", "contact",
+            "name",
+            "phone",
+            "mobile",
+            "email",
+            "id_card",
+            "identity",
+            "bank_card",
+            "address",
+            "home_address",
+            "contact",
         ]
 
         filtered_data = data.copy()

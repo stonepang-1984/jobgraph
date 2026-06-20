@@ -65,6 +65,7 @@ class JobMatcher:
 
             # 检查 Ollama
             import requests
+
             ollama_url = settings.llm.ollama_base_url
             response = requests.get(f"{ollama_url}/api/tags", timeout=3)
             if response.status_code == 200:
@@ -84,6 +85,7 @@ class JobMatcher:
 
         try:
             from langchain_openai import ChatOpenAI
+
             from config.settings import settings
 
             api_key = settings.llm.openai_api_key
@@ -307,10 +309,12 @@ class JobMatcher:
             remaining_jobs = jobs[max_jobs:]
 
             # 构建 prompt（包含职位描述，但限制长度）
-            job_list = "\n".join([
-                f"{i+1}. {job.get('title', '')} - {(job.get('description', '') or '')[:150]}"
-                for i, job in enumerate(jobs_to_eval)
-            ])
+            job_list = "\n".join(
+                [
+                    f"{i + 1}. {job.get('title', '')} - {(job.get('description', '') or '')[:150]}"
+                    for i, job in enumerate(jobs_to_eval)
+                ]
+            )
 
             user_skills = ", ".join(user_profile.get("skills", [])[:8])
             user_exp = user_profile.get("experience_years", 0)
@@ -332,14 +336,15 @@ class JobMatcher:
 返回每个岗位匹配度（0-100），逗号分隔，只返回数字。"""
 
             from langchain_core.messages import HumanMessage
+
             response = llm.invoke([HumanMessage(content=prompt)])
 
             # 解析结果
             scores = self._parse_batch_scores(response.content, len(jobs_to_eval))
-            
+
             # 对于超出限制的职位，返回 None
             scores.extend([None] * len(remaining_jobs))
-            
+
             logger.info(f"批量语义匹配完成，{len(scores)} 个分数")
             return scores
 
@@ -358,7 +363,8 @@ class JobMatcher:
             分数列表 (0-1)
         """
         import re
-        numbers = re.findall(r'\d+', text)
+
+        numbers = re.findall(r"\d+", text)
 
         scores = []
         for num in numbers[:expected_count]:
@@ -416,20 +422,22 @@ class JobMatcher:
 - 技能：{user_skills}
 
 岗位信息：
-- 职位：{job.get('title', '')}
+- 职位：{job.get("title", "")}
 - 岗位职责：{description[:500]}
 - 任职要求：{requirements[:500]}
 
 请评估匹配度（0-100的整数），只返回数字，不要其他内容。"""
 
             from langchain_core.messages import HumanMessage
+
             response = llm.invoke([HumanMessage(content=prompt)])
 
             # 解析分数
             score_text = response.content.strip()
             # 提取数字
             import re
-            numbers = re.findall(r'\d+', score_text)
+
+            numbers = re.findall(r"\d+", score_text)
             if numbers:
                 score = int(numbers[0])
                 if 0 <= score <= 100:
@@ -522,9 +530,7 @@ class JobMatcher:
     def _get_total_job_count(self) -> int:
         """获取职位总数"""
         try:
-            result = neo4j_client.execute_query(
-                "MATCH (j:Job {is_active: true}) RETURN count(j) AS cnt"
-            )
+            result = neo4j_client.execute_query("MATCH (j:Job {is_active: true}) RETURN count(j) AS cnt")
             return result[0]["cnt"] if result else 0
         except Exception:
             return 0

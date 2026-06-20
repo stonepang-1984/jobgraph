@@ -4,6 +4,7 @@
 """
 
 from pathlib import Path
+
 from loguru import logger
 
 
@@ -19,7 +20,7 @@ class ConfigManager:
         if not self.env_path.exists():
             return config
 
-        with open(self.env_path, "r", encoding="utf-8") as f:
+        with open(self.env_path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if line and not line.startswith("#") and "=" in line:
@@ -41,7 +42,7 @@ class ConfigManager:
             # 读取现有配置
             lines = []
             if self.env_path.exists():
-                with open(self.env_path, "r", encoding="utf-8") as f:
+                with open(self.env_path, encoding="utf-8") as f:
                     lines = f.readlines()
 
             # 更新配置
@@ -129,28 +130,28 @@ class ConfigManager:
     def is_llm_configured(self) -> bool:
         """检查 LLM 是否已配置"""
         config = self.get_llm_config()
-        
+
         # 检查 OpenAI API Key
         api_key = config.get("openai_api_key", "")
         if api_key and api_key != "sk-your-openai-api-key" and len(api_key) > 10:
             return True
-        
+
         # 检查 Ollama 配置
         ollama_url = config.get("ollama_base_url", "")
         if ollama_url and ollama_url != "http://localhost:11434":
             return True
-        
+
         return False
 
     def get_active_provider(self) -> str:
         """获取当前激活的 LLM 提供商"""
         config = self.get_llm_config()
-        
+
         # 检查 OpenAI API Key
         api_key = config.get("openai_api_key", "")
         if api_key and api_key != "sk-your-openai-api-key" and len(api_key) > 10:
             return "openai"
-        
+
         # 检查 Ollama
         return "ollama"
 

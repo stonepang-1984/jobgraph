@@ -5,8 +5,6 @@
 
 import re
 from difflib import SequenceMatcher
-from typing import Optional
-from loguru import logger
 
 
 class EntityMatcher:
@@ -35,10 +33,7 @@ class EntityMatcher:
         scores = []
 
         # 1. 名称匹配 (权重 0.4)
-        name_score = self._match_name(
-            company1.get("name", ""),
-            company2.get("name", "")
-        )
+        name_score = self._match_name(company1.get("name", ""), company2.get("name", ""))
         scores.append(("name", name_score, 0.4))
 
         # 2. 英文名匹配 (权重 0.2)
@@ -103,8 +98,7 @@ class EntityMatcher:
 
         # 4. 薪资范围匹配 (权重 0.15)
         salary_score = self._match_salary(
-            job1.get("salary_min"), job1.get("salary_max"),
-            job2.get("salary_min"), job2.get("salary_max")
+            job1.get("salary_min"), job1.get("salary_max"), job2.get("salary_min"), job2.get("salary_max")
         )
         if salary_score is not None:
             scores.append(("salary", salary_score, 0.15))
@@ -131,8 +125,8 @@ class EntityMatcher:
             return 0.95
 
         # 去除空格和标点后匹配
-        clean1 = re.sub(r'[\s\-_，。、]', '', name1)
-        clean2 = re.sub(r'[\s\-_，。、]', '', name2)
+        clean1 = re.sub(r"[\s\-_，。、]", "", name1)
+        clean2 = re.sub(r"[\s\-_，。、]", "", name2)
         if clean1 == clean2:
             return 0.9
 
@@ -152,11 +146,11 @@ class EntityMatcher:
 
     def _match_salary(
         self,
-        min1: Optional[float],
-        max1: Optional[float],
-        min2: Optional[float],
-        max2: Optional[float],
-    ) -> Optional[float]:
+        min1: float | None,
+        max1: float | None,
+        min2: float | None,
+        max2: float | None,
+    ) -> float | None:
         """匹配薪资范围"""
         if min1 is None or max1 is None or min2 is None or max2 is None:
             return None

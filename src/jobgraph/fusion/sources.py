@@ -3,21 +3,21 @@
 管理不同数据来源的优先级和元数据
 """
 
-from enum import Enum
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
+from enum import Enum
 
 
 class DataSourceType(Enum):
     """数据来源类型"""
-    GOVERNMENT = "government"      # 政府数据
-    API = "api"                    # API 接口
-    COMPANY_WEBSITE = "company"    # 公司官网
-    CRAWLER = "crawler"            # 爬虫
-    USER_VERIFIED = "user_v"       # 用户验证
-    USER = "user"                  # 用户贡献
-    ADMIN = "admin"                # 管理员
+
+    GOVERNMENT = "government"  # 政府数据
+    API = "api"  # API 接口
+    COMPANY_WEBSITE = "company"  # 公司官网
+    CRAWLER = "crawler"  # 爬虫
+    USER_VERIFIED = "user_v"  # 用户验证
+    USER = "user"  # 用户贡献
+    ADMIN = "admin"  # 管理员
 
 
 # 数据来源优先级 (数值越高优先级越高)
@@ -35,20 +35,22 @@ SOURCE_PRIORITY = {
 @dataclass
 class DataSource:
     """数据来源信息"""
+
     source_type: DataSourceType
-    source_name: str                    # 具体来源名称
-    source_url: Optional[str] = None    # 来源 URL
-    crawled_at: Optional[datetime] = None
-    confidence: float = 1.0             # 置信度 0-1
+    source_name: str  # 具体来源名称
+    source_url: str | None = None  # 来源 URL
+    crawled_at: datetime | None = None
+    confidence: float = 1.0  # 置信度 0-1
 
 
 @dataclass
 class FieldValue:
     """带来源的字段值"""
+
     value: any
     source: DataSource
     updated_at: datetime
-    
+
     @property
     def priority(self) -> int:
         return SOURCE_PRIORITY.get(self.source.source_type, 0)
@@ -65,7 +67,7 @@ class SourceManager:
         source_id: str,
         source_type: DataSourceType,
         source_name: str,
-        source_url: Optional[str] = None,
+        source_url: str | None = None,
         confidence: float = 1.0,
     ) -> DataSource:
         """注册数据来源"""
@@ -78,7 +80,7 @@ class SourceManager:
         self.sources[source_id] = source
         return source
 
-    def get_source(self, source_id: str) -> Optional[DataSource]:
+    def get_source(self, source_id: str) -> DataSource | None:
         """获取数据来源"""
         return self.sources.get(source_id)
 

@@ -1,6 +1,5 @@
 """Job Search - 岗位搜索 (免费功能)"""
 
-
 from loguru import logger
 
 from src.graph.neo4j_client import neo4j_client

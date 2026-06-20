@@ -10,6 +10,7 @@ import json
 import uuid
 from datetime import datetime
 from pathlib import Path
+
 from loguru import logger
 
 
@@ -20,7 +21,7 @@ class SubscriptionManager:
         self.data_dir = Path(data_dir)
         self.notify_dir = self.data_dir / "notify"
         self.notify_dir.mkdir(parents=True, exist_ok=True)
-        
+
         self.subs_file = self.notify_dir / "subscriptions.json"
         self.subscriptions = self._load_subscriptions()
 
@@ -28,7 +29,7 @@ class SubscriptionManager:
         """加载订阅"""
         if self.subs_file.exists():
             try:
-                with open(self.subs_file, "r", encoding="utf-8") as f:
+                with open(self.subs_file, encoding="utf-8") as f:
                     return json.load(f)
             except Exception:
                 return []
@@ -164,11 +165,13 @@ class SubscriptionManager:
         # 关键词匹配
         keywords = subscription.get("keywords", [])
         if keywords:
-            job_text = " ".join([
-                job.get("title", ""),
-                " ".join(job.get("skills", [])),
-                job.get("description", ""),
-            ]).lower()
+            job_text = " ".join(
+                [
+                    job.get("title", ""),
+                    " ".join(job.get("skills", [])),
+                    job.get("description", ""),
+                ]
+            ).lower()
 
             if not any(kw.lower() in job_text for kw in keywords):
                 return False

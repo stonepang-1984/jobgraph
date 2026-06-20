@@ -5,8 +5,9 @@
 """
 
 import json
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+
 from loguru import logger
 
 
@@ -37,7 +38,7 @@ class UserDataManager:
             # 读取现有数据
             user_data = {}
             if user_file.exists():
-                with open(user_file, "r", encoding="utf-8") as f:
+                with open(user_file, encoding="utf-8") as f:
                     user_data = json.load(f)
 
             # 更新简历信息
@@ -70,7 +71,7 @@ class UserDataManager:
             if not user_file.exists():
                 return None
 
-            with open(user_file, "r", encoding="utf-8") as f:
+            with open(user_file, encoding="utf-8") as f:
                 user_data = json.load(f)
 
             return user_data.get("resume_profile")
@@ -95,7 +96,7 @@ class UserDataManager:
             # 读取现有数据
             user_data = {}
             if user_file.exists():
-                with open(user_file, "r", encoding="utf-8") as f:
+                with open(user_file, encoding="utf-8") as f:
                     user_data = json.load(f)
 
             # 更新用户档案
@@ -128,7 +129,7 @@ class UserDataManager:
             if not user_file.exists():
                 return None
 
-            with open(user_file, "r", encoding="utf-8") as f:
+            with open(user_file, encoding="utf-8") as f:
                 user_data = json.load(f)
 
             return user_data.get("user_profile")
@@ -153,7 +154,7 @@ class UserDataManager:
                 return True
 
             # 读取现有数据
-            with open(user_file, "r", encoding="utf-8") as f:
+            with open(user_file, encoding="utf-8") as f:
                 user_data = json.load(f)
 
             # 删除简历信息

@@ -3,7 +3,6 @@
 聚焦场景: 求职 - 帮你找到靠谱的工作，避开坑人的公司
 """
 
-
 from loguru import logger
 
 from src.graph.neo4j_client import neo4j_client
@@ -255,14 +254,13 @@ class JobGraphManager:
         """创建员工评价."""
         # 先检查公司是否存在
         company_check = neo4j_client.execute_query(
-            "MATCH (c:Company {id: $company_id}) RETURN c.id AS id",
-            {"company_id": review.company_id}
+            "MATCH (c:Company {id: $company_id}) RETURN c.id AS id", {"company_id": review.company_id}
         )
-        
+
         if not company_check:
             logger.warning(f"公司不存在，拒绝创建评价: company_id={review.company_id}")
             return
-        
+
         cypher = """
         CREATE (r:Review {
             id: $id,
@@ -494,14 +492,14 @@ class JobGraphManager:
     def get_stats(self) -> dict:
         """获取图谱统计."""
         stats = {"companies": 0, "jobs": 0, "reviews": 0, "pitfalls": 0, "users": 0}
-        
+
         # 先获取所有存在的标签
         try:
             labels_result = neo4j_client.execute_query("CALL db.labels()")
             existing_labels = {r["label"] for r in labels_result}
         except Exception:
             existing_labels = set()
-        
+
         # 只查询存在的标签
         label_queries = {
             "companies": "Company",
@@ -510,19 +508,17 @@ class JobGraphManager:
             "pitfalls": "Pitfall",
             "users": "UserProfile",
         }
-        
+
         for stat_name, label in label_queries.items():
             if label in existing_labels:
                 try:
-                    result = neo4j_client.execute_query(
-                        f"MATCH (n:{label}) RETURN count(n) AS cnt"
-                    )
+                    result = neo4j_client.execute_query(f"MATCH (n:{label}) RETURN count(n) AS cnt")
                     stats[stat_name] = result[0]["cnt"] if result else 0
                 except Exception:
                     stats[stat_name] = 0
             else:
                 stats[stat_name] = 0
-        
+
         return stats
 
 

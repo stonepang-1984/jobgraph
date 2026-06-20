@@ -5,6 +5,7 @@
 """
 
 from dataclasses import dataclass, field
+
 from loguru import logger
 
 
@@ -312,18 +313,42 @@ class ResumeOptimizer:
     def _is_tech_skill(self, skill: str) -> bool:
         """判断是否为技术技能"""
         tech_keywords = [
-            "python", "java", "javascript", "go", "rust", "c++",
-            "react", "vue", "node", "django", "flask", "spring",
-            "mysql", "redis", "mongodb", "docker", "kubernetes",
-            "机器学习", "深度学习", "算法", "数据结构",
+            "python",
+            "java",
+            "javascript",
+            "go",
+            "rust",
+            "c++",
+            "react",
+            "vue",
+            "node",
+            "django",
+            "flask",
+            "spring",
+            "mysql",
+            "redis",
+            "mongodb",
+            "docker",
+            "kubernetes",
+            "机器学习",
+            "深度学习",
+            "算法",
+            "数据结构",
         ]
         return any(kw in skill.lower() for kw in tech_keywords)
 
     def _is_soft_skill(self, skill: str) -> bool:
         """判断是否为软技能"""
         soft_keywords = [
-            "沟通", "协作", "领导", "管理", "团队",
-            "解决问题", "学习能力", "抗压", "责任心",
+            "沟通",
+            "协作",
+            "领导",
+            "管理",
+            "团队",
+            "解决问题",
+            "学习能力",
+            "抗压",
+            "责任心",
         ]
         return any(kw in skill.lower() for kw in soft_keywords)
 
@@ -386,6 +411,7 @@ class ResumeOptimizer:
             修改后的简历信息
         """
         import copy
+
         updated = copy.deepcopy(profile)
 
         for mod in modifications:

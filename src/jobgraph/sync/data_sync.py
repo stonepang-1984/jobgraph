@@ -1,16 +1,13 @@
 """用户端数据同步模块 - 支持多种同步方式"""
 
+import hashlib
 import json
 import zipfile
-import hashlib
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
-from loguru import logger
 
 import httpx
-
-from config.settings import settings
+from loguru import logger
 
 
 class DataSync:
@@ -75,9 +72,7 @@ class DataSync:
             # 重新计算校验和（排除 checksum 字段）
             verify_data = {k: v for k, v in package.items() if k != "metadata"}
             verify_data["metadata"] = {k: v for k, v in metadata.items() if k != "checksum"}
-            actual_checksum = hashlib.md5(
-                json.dumps(verify_data, ensure_ascii=False).encode()
-            ).hexdigest()
+            actual_checksum = hashlib.md5(json.dumps(verify_data, ensure_ascii=False).encode()).hexdigest()
             # 注意：实际校验和可能因 JSON 序列化差异而不匹配，这里仅警告
             if actual_checksum != expected_checksum:
                 logger.warning("校验和不匹配，数据可能已修改")
@@ -272,7 +267,7 @@ class DataSync:
     def _import_data(self, package: dict) -> dict:
         """导入数据到 Neo4j"""
         from src.jobgraph.graph_manager import job_manager
-        from src.jobgraph.models import Company, Job, Review, CompanySize, RiskLevel
+        from src.jobgraph.models import Company, CompanySize, Job, Review, RiskLevel
 
         stats = {"companies": 0, "jobs": 0, "reviews": 0}
 

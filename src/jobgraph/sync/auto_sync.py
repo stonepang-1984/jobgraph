@@ -4,9 +4,10 @@
 """
 
 import json
-import httpx
 from datetime import datetime
 from pathlib import Path
+
+import httpx
 from loguru import logger
 
 from src.graph.neo4j_client import neo4j_client
@@ -19,14 +20,14 @@ class AutoSync:
         self.data_dir = Path(data_dir)
         self.sync_dir = self.data_dir / "synced"
         self.sync_dir.mkdir(parents=True, exist_ok=True)
-        
+
         self.status_file = self.sync_dir / "sync_status.json"
         self.config_file = self.sync_dir / "sync_config.json"
-        
+
         # 加载配置
         self.config = self._load_config()
         self.server_url = server_url or self.config.get("server_url", "")
-        
+
         # 加载状态
         self.status = self._load_status()
 
@@ -40,15 +41,15 @@ class AutoSync:
             "last_sync": None,
             "last_version": None,
         }
-        
+
         if self.config_file.exists():
             try:
-                with open(self.config_file, "r", encoding="utf-8") as f:
+                with open(self.config_file, encoding="utf-8") as f:
                     config = json.load(f)
                     default_config.update(config)
             except Exception:
                 pass
-        
+
         return default_config
 
     def save_config(self, config: dict):
@@ -67,15 +68,15 @@ class AutoSync:
             "jobs_synced": 0,
             "reviews_synced": 0,
         }
-        
+
         if self.status_file.exists():
             try:
-                with open(self.status_file, "r", encoding="utf-8") as f:
+                with open(self.status_file, encoding="utf-8") as f:
                     status = json.load(f)
                     default_status.update(status)
             except Exception:
                 pass
-        
+
         return default_status
 
     def _save_status(self):
@@ -88,7 +89,7 @@ class AutoSync:
         if not self.server_url:
             logger.error("未配置服务器地址")
             return False
-        
+
         try:
             response = httpx.get(f"{self.server_url}/api/v1/status", timeout=5)
             return response.status_code == 200
@@ -100,14 +101,14 @@ class AutoSync:
         """获取远程数据版本"""
         if not self.server_url:
             return None
-        
+
         try:
             response = httpx.get(f"{self.server_url}/api/v1/version", timeout=5)
             if response.status_code == 200:
                 return response.json().get("version")
         except Exception as e:
             logger.error(f"获取版本失败: {e}")
-        
+
         return None
 
     def check_and_sync(self) -> dict:
@@ -198,25 +199,25 @@ class AutoSync:
         try:
             # 获取本地最后同步时间
             since = self.status.get("last_sync")
-            
+
             # 从数据中心获取数据
             params = {"limit": 1000}
             if since:
                 params["since"] = since
-            
+
             response = httpx.get(
                 f"{self.server_url}/api/v1/companies",
                 params=params,
                 timeout=30,
             )
-            
+
             if response.status_code != 200:
                 logger.error(f"获取公司数据失败: {response.status_code}")
                 return 0
-            
+
             data = response.json()
             companies = data.get("data", [])
-            
+
             # 导入到 Neo4j
             count = 0
             for company in companies:
@@ -225,10 +226,10 @@ class AutoSync:
                     count += 1
                 except Exception as e:
                     logger.error(f"导入公司失败: {e}")
-            
+
             logger.info(f"同步公司完成: {count} 家")
             return count
-            
+
         except Exception as e:
             logger.error(f"同步公司失败: {e}")
             return 0
@@ -237,24 +238,24 @@ class AutoSync:
         """同步职位数据"""
         try:
             since = self.status.get("last_sync")
-            
+
             params = {"limit": 1000}
             if since:
                 params["since"] = since
-            
+
             response = httpx.get(
                 f"{self.server_url}/api/v1/jobs",
                 params=params,
                 timeout=30,
             )
-            
+
             if response.status_code != 200:
                 logger.error(f"获取职位数据失败: {response.status_code}")
                 return 0
-            
+
             data = response.json()
             jobs = data.get("data", [])
-            
+
             count = 0
             for job in jobs:
                 try:
@@ -262,10 +263,10 @@ class AutoSync:
                     count += 1
                 except Exception as e:
                     logger.error(f"导入职位失败: {e}")
-            
+
             logger.info(f"同步职位完成: {count} 个")
             return count
-            
+
         except Exception as e:
             logger.error(f"同步职位失败: {e}")
             return 0
@@ -274,24 +275,24 @@ class AutoSync:
         """同步评价数据"""
         try:
             since = self.status.get("last_sync")
-            
+
             params = {"limit": 1000}
             if since:
                 params["since"] = since
-            
+
             response = httpx.get(
                 f"{self.server_url}/api/v1/reviews",
                 params=params,
                 timeout=30,
             )
-            
+
             if response.status_code != 200:
                 logger.error(f"获取评价数据失败: {response.status_code}")
                 return 0
-            
+
             data = response.json()
             reviews = data.get("data", [])
-            
+
             count = 0
             for review in reviews:
                 try:
@@ -299,10 +300,10 @@ class AutoSync:
                     count += 1
                 except Exception as e:
                     logger.error(f"导入评价失败: {e}")
-            
+
             logger.info(f"同步评价完成: {count} 条")
             return count
-            
+
         except Exception as e:
             logger.error(f"同步评价失败: {e}")
             return 0
@@ -349,19 +350,21 @@ class AutoSync:
         MATCH (c:Company {id: $company_id})
         MERGE (c)-[:HAS_JOB]->(j)
         """
-        neo4j_client.execute_write(cypher, {
-            **data,
-            "is_active": data.get("is_active", True),
-        })
+        neo4j_client.execute_write(
+            cypher,
+            {
+                **data,
+                "is_active": data.get("is_active", True),
+            },
+        )
 
     def _import_review(self, data: dict):
         """导入评价数据到 Neo4j"""
         # 检查公司是否存在
         company_check = neo4j_client.execute_query(
-            "MATCH (c:Company {id: $company_id}) RETURN c.id AS id",
-            {"company_id": data.get("company_id")}
+            "MATCH (c:Company {id: $company_id}) RETURN c.id AS id", {"company_id": data.get("company_id")}
         )
-        
+
         if not company_check:
             logger.warning(f"公司不存在，跳过评价: {data.get('company_id')}")
             return

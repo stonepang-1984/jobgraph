@@ -3,10 +3,9 @@
 记录数据的来源、变更历史
 """
 
-import json
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+
 from loguru import logger
 
 from src.graph.neo4j_client import neo4j_client
@@ -116,7 +115,7 @@ class DataLineage:
         except Exception as e:
             logger.warning(f"Failed to record change: {e}")
 
-    def get_lineage(self, entity_id: str, field: Optional[str] = None) -> list[dict]:
+    def get_lineage(self, entity_id: str, field: str | None = None) -> list[dict]:
         """获取数据血缘
 
         Args:
@@ -133,9 +132,7 @@ class DataLineage:
                 RETURN l
                 ORDER BY l.updated_at DESC
                 """
-                return neo4j_client.execute_query(
-                    cypher, {"entity_id": entity_id, "field": field}
-                )
+                return neo4j_client.execute_query(cypher, {"entity_id": entity_id, "field": field})
             else:
                 cypher = """
                 MATCH (l:DataLineage {entity_id: $entity_id})
@@ -164,9 +161,7 @@ class DataLineage:
             ORDER BY c.changed_at DESC
             LIMIT $limit
             """
-            return neo4j_client.execute_query(
-                cypher, {"entity_id": entity_id, "limit": limit}
-            )
+            return neo4j_client.execute_query(cypher, {"entity_id": entity_id, "limit": limit})
         except Exception as e:
             logger.warning(f"Failed to get changes: {e}")
             return []
@@ -190,9 +185,7 @@ class DataLineage:
                    l.updated_at AS updated_at
             ORDER BY l.updated_at DESC
             """
-            return neo4j_client.execute_query(
-                cypher, {"entity_id": entity_id, "field": field}
-            )
+            return neo4j_client.execute_query(cypher, {"entity_id": entity_id, "field": field})
         except Exception as e:
             logger.warning(f"Failed to get field history: {e}")
             return []

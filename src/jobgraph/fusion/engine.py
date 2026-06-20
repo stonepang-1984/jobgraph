@@ -4,11 +4,11 @@
 """
 
 from datetime import datetime
-from typing import Optional
+
 from loguru import logger
 
-from src.jobgraph.fusion.sources import DataSource, DataSourceType, SOURCE_PRIORITY, PREDEFINED_SOURCES
 from src.jobgraph.fusion.matcher import entity_matcher
+from src.jobgraph.fusion.sources import PREDEFINED_SOURCES, SOURCE_PRIORITY, DataSource
 
 
 class DataFusionEngine:
@@ -17,7 +17,7 @@ class DataFusionEngine:
     def __init__(self):
         self.match_threshold = 0.8  # 匹配阈值
 
-    def fuse_company(self, existing: Optional[dict], new_data: dict, source: str) -> dict:
+    def fuse_company(self, existing: dict | None, new_data: dict, source: str) -> dict:
         """融合公司数据
 
         Args:
@@ -55,8 +55,7 @@ class DataFusionEngine:
                 # 已有字段，比较优先级
                 existing_source = existing.get(f"{field}_source", "crawler")
                 existing_priority = SOURCE_PRIORITY.get(
-                    PREDEFINED_SOURCES.get(existing_source, PREDEFINED_SOURCES["crawler"]).source_type,
-                    0
+                    PREDEFINED_SOURCES.get(existing_source, PREDEFINED_SOURCES["crawler"]).source_type, 0
                 )
                 new_priority = SOURCE_PRIORITY.get(source_info.source_type, 0)
 
@@ -69,21 +68,23 @@ class DataFusionEngine:
                     # 数据不同且来源可信，记录冲突
                     if "conflicts" not in fused:
                         fused["conflicts"] = []
-                    fused["conflicts"].append({
-                        "field": field,
-                        "existing_value": existing_field,
-                        "new_value": new_value,
-                        "existing_source": existing_source,
-                        "new_source": source,
-                        "timestamp": datetime.now().isoformat(),
-                    })
+                    fused["conflicts"].append(
+                        {
+                            "field": field,
+                            "existing_value": existing_field,
+                            "new_value": new_value,
+                            "existing_source": existing_source,
+                            "new_source": source,
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                    )
 
         # 更新时间
         fused["updated_at"] = datetime.now().isoformat()
 
         return fused
 
-    def fuse_job(self, existing: Optional[dict], new_data: dict, source: str) -> dict:
+    def fuse_job(self, existing: dict | None, new_data: dict, source: str) -> dict:
         """融合岗位数据"""
         source_info = PREDEFINED_SOURCES.get(source, PREDEFINED_SOURCES["crawler"])
 
@@ -102,7 +103,7 @@ class DataFusionEngine:
         fused["updated_at"] = datetime.now().isoformat()
         return fused
 
-    def fuse_review(self, existing: Optional[dict], new_data: dict, source: str) -> dict:
+    def fuse_review(self, existing: dict | None, new_data: dict, source: str) -> dict:
         """融合评价数据"""
         # 评价通常不合并，直接添加
         source_info = PREDEFINED_SOURCES.get(source, PREDEFINED_SOURCES["user"])
@@ -188,9 +189,9 @@ class DataQualityChecker:
 
     # 字段格式验证
     FIELD_VALIDATORS = {
-        "email": r'^[\w\.-]+@[\w\.-]+\.\w+$',
-        "phone": r'^\d{11}$',
-        "url": r'^https?://',
+        "email": r"^[\w\.-]+@[\w\.-]+\.\w+$",
+        "phone": r"^\d{11}$",
+        "url": r"^https?://",
         "salary": lambda x: 0 < x < 1000000 if x else True,
     }
 
@@ -213,7 +214,7 @@ class DataQualityChecker:
         optional_fields = ["industry", "headquarters", "founded", "employees"]
         filled = sum(1 for f in optional_fields if data.get(f))
         completeness = filled / len(optional_fields)
-        score *= (0.5 + 0.5 * completeness)
+        score *= 0.5 + 0.5 * completeness
 
         # 检查数值范围
         if data.get("avg_rating"):

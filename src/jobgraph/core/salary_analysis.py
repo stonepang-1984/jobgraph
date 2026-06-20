@@ -1,7 +1,5 @@
 """Salary Analysis - 薪资分析 (免费功能)"""
 
-
-
 from src.graph.neo4j_client import neo4j_client
 
 

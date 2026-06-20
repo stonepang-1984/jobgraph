@@ -1,7 +1,5 @@
 """Company Profile - 公司画像 (免费功能)"""
 
-
-
 from src.graph.neo4j_client import neo4j_client
 
 
