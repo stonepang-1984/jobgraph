@@ -92,15 +92,28 @@ make deploy
 ### 导入更多数据 (可选)
 
 ```bash
-# 从离线数据包导入 (从 jobgraph-admin 导出)
+# 从 admin 仓库导入数据（推荐）
+# 1. 先在 admin 仓库导出数据
+cd ../jobgraph-admin
+PYTHONPATH=. python3 scripts/export_data.py
+
+# 2. 在 jobgraph 仓库导入数据
+cd ../jobgraph
+PYTHONPATH=. python3 scripts/import_from_admin.py --file ../jobgraph-admin/data/export/admin_data_YYYYMMDD.json
+
+# 或从离线数据包导入
 make sync-package FILE=data_package.zip
 
-# 从数据中心同步 (需要 Tailscale)
+# 或从数据中心同步 (需要 Tailscale)
 make sync-tailscale SERVER=http://数据中心地址:8000
-
-# 导入初始数据 (如果 quickstart 没有导入)
-make import-initial
 ```
+
+**数据同步脚本说明**：
+
+| 脚本 | 仓库 | 说明 |
+|------|------|------|
+| `scripts/export_data.py` | admin | 从 Neo4j 导出数据 |
+| `scripts/import_from_admin.py` | jobgraph | 导入 admin 数据到 Neo4j |
 
 ## 💡 使用场景
 
