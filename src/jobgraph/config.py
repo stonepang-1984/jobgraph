@@ -7,7 +7,7 @@
 # Version
 VERSION = "1.0.0"
 
-# 免费功能 (当前所有功能免费)
+# 免费功能
 FREE_FEATURES = {
     "job_search": True,
     "company_profile": True,
@@ -15,12 +15,12 @@ FREE_FEATURES = {
     "salary_analysis": True,
     "basic_matching": True,
     "privacy_mode": True,
-    # 以下功能暂时免费开放
-    "advanced_matching": True,
-    "data_export": True,
-    "auto_data_update": True,
-    "unlimited_search": True,
-    "career_suggestions": True,
+    # Pro-only features should be False for free tier
+    "advanced_matching": False,
+    "data_export": False,
+    "auto_data_update": False,
+    "unlimited_search": False,
+    "career_suggestions": False,
 }
 
 # 付费功能 (保留架构，当前不启用)
@@ -35,11 +35,11 @@ PRO_FEATURES = {
     "api_access": True,
 }
 
-# 免费版限制 (当前无限制)
+# 免费版限制
 FREE_LIMITS = {
-    "max_search_per_day": 10000,
-    "max_jobs_per_search": 500,
-    "max_matching_results": 100,
+    "max_search_per_day": 100,
+    "max_jobs_per_search": 50,
+    "max_matching_results": 10,
     "max_reviews_per_company": 100,
 }
 
@@ -71,7 +71,8 @@ def get_features(is_pro: bool = False) -> dict:
 
 def get_limits(is_pro: bool = False) -> dict:
     """获取限制"""
-    # 当前无限制
+    if is_pro:
+        return PRO_LIMITS.copy()
     return FREE_LIMITS.copy()
 
 
@@ -92,8 +93,8 @@ def get_edition_info(is_pro: bool = False) -> dict:
     """获取版本信息"""
     return {
         "version": VERSION,
-        "is_pro": True,  # 当前所有用户都是"专业版"
-        "edition": "免费版",  # 但显示为免费版
+        "is_pro": is_pro,
+        "edition": "专业版" if is_pro else "免费版",
         "features": get_features(is_pro),
         "limits": get_limits(is_pro),
         "donation": DONATION,
@@ -117,7 +118,7 @@ def get_upgrade_info() -> dict:
         },
         "donation": DONATION,
         "trial": {
-            "days": 0,
+            "days": 7,
             "price": 0,
         },
     }
