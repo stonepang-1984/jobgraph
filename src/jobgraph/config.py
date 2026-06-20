@@ -65,7 +65,11 @@ DONATION = {
 
 def get_features(is_pro: bool = False) -> dict:
     """获取功能列表"""
-    # 当前所有功能免费
+    if is_pro:
+        # For pro users, include all free features plus pro features
+        features = FREE_FEATURES.copy()
+        features.update(PRO_FEATURES)
+        return features
     return FREE_FEATURES.copy()
 
 
