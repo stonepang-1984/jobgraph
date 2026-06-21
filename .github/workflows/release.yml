@@ -1,0 +1,137 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  # ============================================================
+  # Windows 构建
+  # ============================================================
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Download dependencies
+        run: .\installer\windows\download-deps.bat
+        shell: cmd
+
+      - name: Prepare build directory
+        run: |
+          mkdir -p build/windows/runtime
+          mkdir -p build/windows/app
+          mkdir -p build/windows/bin
+          
+          # 复制运行时
+          xcopy /E /I deps\windows\runtime\python build\windows\runtime\python
+          xcopy /E /I deps\windows\runtime\neo4j build\windows\runtime\neo4j
+          xcopy /E /I deps\windows\runtime\redis build\windows\runtime\redis
+          
+          # 复制应用
+          xcopy /E /I src build\windows\app\src
+          xcopy /E /I web build\windows\app\web
+          xcopy /E /I config build\windows\app\config
+          xcopy /E /I scripts build\windows\app\scripts
+          xcopy /E /I api build\windows\app\api
+          copy requirements.txt build\windows\app\
+          copy pyproject.toml build\windows\app\
+          
+          # 复制数据
+          if exist data\initial xcopy /E /I data\initial build\windows\app\data\initial
+          
+          # 复制脚本
+          copy bin\windows\*.bat build\windows\bin\
+        shell: cmd
+
+      - name: Build installer
+        run: |
+          choco install innosetup -y
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\windows\jobgraph.iss
+        shell: powershell
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JobGraph-Windows
+          path: Output/JobGraph-Setup-Windows-x64.exe
+
+  # ============================================================
+  # Linux 构建
+  # ============================================================
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y makeself
+
+      - name: Download dependencies
+        run: ./installer/linux/download-deps.sh
+
+      - name: Create installer
+        run: ./installer/linux/create-installer.sh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JobGraph-Linux
+          path: dist/JobGraph-Linux-x64.run
+
+  # ============================================================
+  # 创建 Release
+  # ============================================================
+  release:
+    needs: [build-windows, build-linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: JobGraph v${{ github.ref_name }}
+          body: |
+            ## JobGraph ${{ github.ref_name }}
+            
+            ### 下载
+            - **Windows**: JobGraph-Setup-Windows-x64.exe
+            - **Linux**: JobGraph-Linux-x64.run
+            
+            ### 安装说明
+            
+            #### Windows
+            1. 下载 `JobGraph-Setup-Windows-x64.exe`
+            2. 双击运行安装程序
+            3. 按提示完成安装
+            4. 启动 JobGraph
+            
+            #### Linux
+            1. 下载 `JobGraph-Linux-x64.run`
+            2. 运行: `chmod +x JobGraph-Linux-x64.run && ./JobGraph-Linux-x64.run`
+            3. 按提示完成安装
+            4. 启动: `~/JobGraph/start.sh`
+            
+            ### 功能
+            - 简历上传解析
+            - 智能职位匹配
+            - 关键词订阅提醒
+            - 公司画像
+            - 避坑指南
+          files: |
+            JobGraph-Windows/JobGraph-Setup-Windows-x64.exe
+            JobGraph-Linux/JobGraph-Linux-x64.run
+          draft: false
+          prerelease: false
