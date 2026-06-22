@@ -57,9 +57,9 @@ jobs:
           path: dist/JobGraph-Linux-x64-Offline.run
 
   # ============================================================
-  # Windows 在线安装包
+  # Windows 安装包（在线 + 离线）
   # ============================================================
-  build-windows-online:
+  build-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -70,97 +70,85 @@ jobs:
           python-version: '3.11'
 
       - name: Download dependencies
-        run: .\installer\windows\download-deps.bat
-        shell: cmd
+        shell: powershell
+        run: |
+          # Python Embeddable
+          Write-Host "Downloading Python..."
+          Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip" -OutFile "python.zip"
+          New-Item -ItemType Directory -Force -Path "deps/windows/runtime/python"
+          Expand-Archive -Path "python.zip" -DestinationPath "deps/windows/runtime/python"
+          Remove-Item "python.zip"
+          
+          # Neo4j
+          Write-Host "Downloading Neo4j..."
+          Invoke-WebRequest -Uri "https://dist.neo4j.org/neo4j-community-5.26.0-windows.zip" -OutFile "neo4j.zip"
+          Expand-Archive -Path "neo4j.zip" -DestinationPath "deps/windows/runtime/"
+          Rename-Item "deps/windows/runtime/neo4j-community-5.26.0" "neo4j"
+          Remove-Item "neo4j.zip"
+          
+          # Redis
+          Write-Host "Downloading Redis..."
+          Invoke-WebRequest -Uri "https://github.com/tporadowski/redis/releases/download/v5.0.14.1/Redis-x64-5.0.14.1.zip" -OutFile "redis.zip"
+          New-Item -ItemType Directory -Force -Path "deps/windows/runtime/redis"
+          Expand-Archive -Path "redis.zip" -DestinationPath "deps/windows/runtime/redis"
+          Remove-Item "redis.zip"
 
       - name: Prepare build directory
+        shell: powershell
         run: |
-          mkdir -p build/windows/runtime
-          mkdir -p build/windows/app
-          mkdir -p build/windows/bin
+          # 创建构建目录
+          New-Item -ItemType Directory -Force -Path "build/windows/runtime/python"
+          New-Item -ItemType Directory -Force -Path "build/windows/runtime/neo4j"
+          New-Item -ItemType Directory -Force -Path "build/windows/runtime/redis"
+          New-Item -ItemType Directory -Force -Path "build/windows/app"
+          New-Item -ItemType Directory -Force -Path "build/windows/bin"
           
-          xcopy /E /I deps\windows\runtime\python build\windows\runtime\python
-          xcopy /E /I deps\windows\runtime\neo4j build\windows\runtime\neo4j
-          xcopy /E /I deps\windows\runtime\redis build\windows\runtime\redis
+          # 复制运行时
+          Copy-Item -Recurse -Force "deps/windows/runtime/python/*" "build/windows/runtime/python/"
+          Copy-Item -Recurse -Force "deps/windows/runtime/neo4j/*" "build/windows/runtime/neo4j/"
+          Copy-Item -Recurse -Force "deps/windows/runtime/redis/*" "build/windows/runtime/redis/"
           
-          xcopy /E /I src build\windows\app\src
-          xcopy /E /I web build\windows\app\web
-          xcopy /E /I config build\windows\app\config
-          xcopy /E /I scripts build\windows\app\scripts
-          xcopy /E /I api build\windows\app\api
-          copy requirements.txt build\windows\app\
-          copy pyproject.toml build\windows\app\
+          # 复制应用
+          Copy-Item -Recurse -Force "src" "build/windows/app/"
+          Copy-Item -Recurse -Force "web" "build/windows/app/"
+          Copy-Item -Recurse -Force "config" "build/windows/app/"
+          Copy-Item -Recurse -Force "scripts" "build/windows/app/"
+          Copy-Item -Recurse -Force "api" "build/windows/app/"
+          Copy-Item -Force "requirements.txt" "build/windows/app/"
+          Copy-Item -Force "pyproject.toml" "build/windows/app/"
           
-          if exist data\initial xcopy /E /I data\initial build\windows\app\data\initial
+          # 复制初始数据
+          if (Test-Path "data/initial") {
+            New-Item -ItemType Directory -Force -Path "build/windows/app/data/initial"
+            Copy-Item -Recurse -Force "data/initial/*" "build/windows/app/data/initial/"
+          }
           
-          copy bin\windows\*.bat build\windows\bin\
-        shell: cmd
+          # 复制脚本
+          Copy-Item -Force "bin/windows/*.bat" "build/windows/bin/"
 
       - name: Build installer
+        shell: powershell
         run: |
           choco install innosetup -y
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\windows\jobgraph.iss
-        shell: powershell
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "installer\windows\jobgraph.iss"
 
-      - name: Upload artifact
+      - name: Upload online installer
         uses: actions/upload-artifact@v4
         with:
           name: JobGraph-Windows-Online
           path: Output/JobGraph-Setup-Windows-x64.exe
 
-  # ============================================================
-  # Windows 离线安装包
-  # ============================================================
-  build-windows-offline:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Download dependencies
-        run: .\installer\windows\download-deps.bat
-        shell: cmd
-
-      - name: Prepare build directory
+      - name: Download Python packages for offline
+        shell: powershell
         run: |
-          mkdir -p build/windows-offline/runtime
-          mkdir -p build/windows-offline/app
-          mkdir -p build/windows-offline/bin
-          
-          xcopy /E /I deps\windows\runtime\python build\windows-offline\runtime\python
-          xcopy /E /I deps\windows\runtime\neo4j build\windows-offline\runtime\neo4j
-          xcopy /E /I deps\windows\runtime\redis build\windows-offline\runtime\redis
-          
-          xcopy /E /I src build\windows-offline\app\src
-          xcopy /E /I web build\windows-offline\app\web
-          xcopy /E /I config build\windows-offline\app\config
-          xcopy /E /I scripts build\windows-offline\app\scripts
-          xcopy /E /I api build\windows-offline\app\api
-          copy requirements.txt build\windows-offline\app\
-          copy pyproject.toml build\windows-offline\app\
-          
-          if exist data\initial xcopy /E /I data\initial build\windows-offline\app\data\initial
-          
-          copy bin\windows\*.bat build\windows-offline\bin\
-        shell: cmd
+          New-Item -ItemType Directory -Force -Path "build/windows/app/lib/python"
+          & "deps/windows/runtime/python/python.exe" -m pip download -r requirements.txt -d "build/windows/app/lib/python"
 
-      - name: Download Python packages
+      - name: Build offline installer
+        shell: powershell
         run: |
-          cd build\windows-offline\app
-          mkdir lib\python
-          ..\..\deps\windows\runtime\python\python.exe -m pip download -r ..\..\requirements.txt -d lib\python
-        shell: cmd
-
-      - name: Build installer
-        run: |
-          choco install innosetup -y
-          
-          # 创建 Inno Setup 配置
-          @'
+          # 创建离线版 Inno Setup 配置
+          $issContent = @"
           [Setup]
           AppName=JobGraph
           AppVersion=1.0.0
@@ -172,9 +160,9 @@ jobs:
           SolidCompression=yes
           
           [Files]
-          Source: "build\windows-offline\runtime\*"; DestDir: "{app}\runtime"; Flags: recursesubdirs ignoreversion
-          Source: "build\windows-offline\app\*"; DestDir: "{app}\app"; Flags: recursesubdirs ignoreversion
-          Source: "build\windows-offline\bin\*"; DestDir: "{app}\bin"; Flags: recursesubdirs ignoreversion
+          Source: "build\windows\runtime\*"; DestDir: "{app}\runtime"; Flags: recursesubdirs ignoreversion
+          Source: "build\windows\app\*"; DestDir: "{app}\app"; Flags: recursesubdirs ignoreversion
+          Source: "build\windows\bin\*"; DestDir: "{app}\bin"; Flags: recursesubdirs ignoreversion
           
           [Dirs]
           Name: "{app}\logs"
@@ -189,12 +177,12 @@ jobs:
           
           [Run]
           Filename: "{app}\bin\start.bat"; Description: "启动 JobGraph"; Flags: postinstall nowait
-          '@ | Out-File -FilePath build\windows-offline\jobgraph-offline.iss -Encoding UTF8
+          "@
+          $issContent | Out-File -FilePath "build\offline.iss" -Encoding UTF8
           
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" build\windows-offline\jobgraph-offline.iss
-        shell: powershell
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "build\offline.iss"
 
-      - name: Upload artifact
+      - name: Upload offline installer
         uses: actions/upload-artifact@v4
         with:
           name: JobGraph-Windows-Offline
@@ -204,7 +192,7 @@ jobs:
   # 创建 Release
   # ============================================================
   release:
-    needs: [build-linux-online, build-linux-offline, build-windows-online, build-windows-offline]
+    needs: [build-linux-online, build-linux-offline, build-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -230,8 +218,8 @@ jobs:
             
             | 类型 | 文件大小 | 网络要求 | 适用场景 |
             |------|----------|----------|----------|
-            | **在线安装包** | 小 (~10MB) | 需要联网下载依赖 | 网络环境好 |
-            | **离线安装包** | 大 (~500MB) | 无需联网 | 无网络/内网环境 |
+            | **在线安装包** | ~10MB | 需要联网下载依赖 | 网络环境好 |
+            | **离线安装包** | ~500MB | 无需联网 | 无网络/内网环境 |
             
             ### 安装说明
             
