@@ -16,7 +16,6 @@ SolidCompression=yes
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=lowest
-SetupIconFile=..\docs\logo.ico
 UninstallDisplayIcon={app}\bin\start.bat
 
 [Files]
