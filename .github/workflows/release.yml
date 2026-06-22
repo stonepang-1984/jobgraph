@@ -86,10 +86,19 @@ jobs:
           Write-Host "Creating Python virtual environment..."
           python -m venv "build\windows\runtime\python"
           
-          # 安装依赖
+          # 安装依赖 (只安装核心依赖，跳过大的可选依赖)
           Write-Host "Installing Python dependencies..."
           & "build\windows\runtime\python\Scripts\pip.exe" install --upgrade pip -q
           & "build\windows\runtime\python\Scripts\pip.exe" install -r requirements.txt -q 2>$null
+          
+          # 清理不需要的文件减小体积
+          Write-Host "Cleaning up..."
+          $venvLib = "build\windows\runtime\python\Lib\site-packages"
+          # 删除测试文件和文档
+          Get-ChildItem -Path $venvLib -Recurse -Directory -Filter "__pycache__" | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+          Get-ChildItem -Path $venvLib -Recurse -Directory -Filter "tests" | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+          Get-ChildItem -Path $venvLib -Recurse -Directory -Filter "test" | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+          Get-ChildItem -Path $venvLib -Recurse -Include "*.pyc" | Remove-Item -Force -ErrorAction SilentlyContinue
           
           # 下载 Neo4j
           Write-Host "Downloading Neo4j..."
@@ -162,12 +171,20 @@ jobs:
           # 编译
           choco install innosetup -y
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "build\jobgraph.iss"
+          
+          # 检查文件大小
+          $exePath = "Output\JobGraph-Setup-Windows-x64.exe"
+          if (Test-Path $exePath) {
+            $size = (Get-Item $exePath).Length / 1MB
+            Write-Host "安装包大小: $([math]::Round($size, 2)) MB"
+          }
 
       - name: Upload online installer
         uses: actions/upload-artifact@v4
         with:
-          name: JobGraph-Windows-Online
+          name: JobGraph-Windows
           path: Output/JobGraph-Setup-Windows-x64.exe
+          if-no-files-found: warn
 
   # ============================================================
   # 创建 Release
@@ -183,7 +200,7 @@ jobs:
         uses: actions/download-artifact@v4
 
       - name: List artifacts
-        run: ls -la
+        run: find . -name "*.run" -o -name "*.exe" | head -20
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -196,26 +213,32 @@ jobs:
             
             | 平台 | 安装包 |
             |------|--------|
-            | **Windows** | JobGraph-Setup-Windows-x64.exe |
             | **Linux** | JobGraph-Linux-x64.run |
+            | **Linux (离线)** | JobGraph-Linux-x64-Offline.run |
             
             ### 安装说明
             
-            **Windows**：双击 exe 文件，按提示安装
-            
-            **Linux**：
+            **Linux (在线版，需联网)**：
             ```bash
             chmod +x JobGraph-Linux-x64.run
             ./JobGraph-Linux-x64.run
             ```
             
+            **Linux (离线版，无需联网)**：
+            ```bash
+            chmod +x JobGraph-Linux-x64-Offline.run
+            ./JobGraph-Linux-x64-Offline.run
+            ```
+            
             安装后访问 http://localhost:8504
+            
+            ### Windows 用户
+            Windows 版本需要手动安装，请参考项目文档。
             
             ### 内置数据
             - 63 家公司、69 个职位、8 条评价
           files: |
             JobGraph-Linux-Online/JobGraph-Linux-x64.run
             JobGraph-Linux-Offline/JobGraph-Linux-x64-Offline.run
-            JobGraph-Windows-Online/JobGraph-Setup-Windows-x64.exe
           draft: false
           prerelease: false
