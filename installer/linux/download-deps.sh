@@ -27,7 +27,7 @@ if [ -d "python" ] && [ -f "python/bin/python3" ]; then
     echo "  Python 已存在，跳过下载"
 else
     # 使用 Conda 的预编译 Python
-    PYTHON_URL="https://github.com/indygreg/python-build-standalone/releases/download/20240415/cpython-3.11.9+20240415-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
+    PYTHON_URL="https://github.com/astral-sh/python-build-standalone/releases/download/20240415/cpython-3.11.9+20240415-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
     echo "  下载: $PYTHON_URL"
     curl -L -o python.tar.gz "$PYTHON_URL"
     mkdir -p python
