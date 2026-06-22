@@ -20,19 +20,16 @@ UninstallDisplayIcon={app}\bin\start.bat
 
 [Files]
 ; 运行时依赖
-Source: "..\deps\windows\runtime\python\*"; DestDir: "{app}\runtime\python"; Flags: recursesubdirs ignoreversion
-Source: "..\deps\windows\runtime\neo4j\*"; DestDir: "{app}\runtime\neo4j"; Flags: recursesubdirs ignoreversion
-Source: "..\deps\windows\runtime\redis\*"; DestDir: "{app}\runtime\redis"; Flags: recursesubdirs ignoreversion
+Source: "build\windows\runtime\python\*"; DestDir: "{app}\runtime\python"; Flags: recursesubdirs ignoreversion
+Source: "build\windows\runtime\neo4j\*"; DestDir: "{app}\runtime\neo4j"; Flags: recursesubdirs ignoreversion
+Source: "build\windows\runtime\redis\*"; DestDir: "{app}\runtime\redis"; Flags: recursesubdirs ignoreversion
 
 ; 应用程序
-Source: "..\app\*"; DestDir: "{app}\app"; Flags: recursesubdirs ignoreversion
+Source: "build\windows\app\*"; DestDir: "{app}\app"; Flags: recursesubdirs ignoreversion
 
 ; 启动脚本
-Source: "..\bin\windows\start.bat"; DestDir: "{app}\bin"
-Source: "..\bin\windows\stop.bat"; DestDir: "{app}\bin"
-
-; 初始数据
-Source: "..\data\initial\*"; DestDir: "{app}\app\data\initial"; Flags: recursesubdirs ignoreversion
+Source: "build\windows\bin\start.bat"; DestDir: "{app}\bin"
+Source: "build\windows\bin\stop.bat"; DestDir: "{app}\bin"
 
 [Dirs]
 Name: "{app}\logs"
@@ -41,10 +38,10 @@ Name: "{app}\data\redis"
 Name: "{app}\app\data\user"
 
 [Icons]
-Name: "{group}\JobGraph"; Filename: "{app}\bin\start.bat"; IconFilename: "{app}\runtime\neo4j\bin\neo4j-icon.ico"
+Name: "{group}\JobGraph"; Filename: "{app}\bin\start.bat"
 Name: "{group}\停止 JobGraph"; Filename: "{app}\bin\stop.bat"
 Name: "{group}\卸载 JobGraph"; Filename: "{uninstallexe}"
-Name: "{commondesktop}\JobGraph"; Filename: "{app}\bin\start.bat"; IconFilename: "{app}\runtime\neo4j\bin\neo4j-icon.ico"
+Name: "{commondesktop}\JobGraph"; Filename: "{app}\bin\start.bat"
 
 [Run]
 Filename: "{app}\bin\start.bat"; Description: "启动 JobGraph"; Flags: postinstall nowait
