@@ -17,9 +17,9 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y makeself
+          sudo apt-get install -y makeself redis-server
 
-      - name: Download dependencies
+      - name: Prepare dependencies
         run: ./installer/linux/download-deps.sh
 
       - name: Create online installer
@@ -42,9 +42,9 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y makeself
+          sudo apt-get install -y makeself redis-server
 
-      - name: Download dependencies
+      - name: Prepare dependencies
         run: ./installer/linux/download-deps.sh
 
       - name: Create offline installer
@@ -57,7 +57,7 @@ jobs:
           path: dist/JobGraph-Linux-x64-Offline.run
 
   # ============================================================
-  # Windows 安装包（在线 + 离线）
+  # Windows 安装包
   # ============================================================
   build-windows:
     runs-on: windows-latest
@@ -69,85 +69,60 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Download dependencies
-        shell: powershell
-        run: |
-          # Python Embeddable
-          Write-Host "Downloading Python..."
-          Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip" -OutFile "python.zip"
-          New-Item -ItemType Directory -Force -Path "deps/windows/runtime/python"
-          Expand-Archive -Path "python.zip" -DestinationPath "deps/windows/runtime/python"
-          Remove-Item "python.zip"
-          
-          # Neo4j
-          Write-Host "Downloading Neo4j..."
-          Invoke-WebRequest -Uri "https://dist.neo4j.org/neo4j-community-5.26.0-windows.zip" -OutFile "neo4j.zip"
-          Expand-Archive -Path "neo4j.zip" -DestinationPath "deps/windows/runtime/"
-          Rename-Item "deps/windows/runtime/neo4j-community-5.26.0" "neo4j"
-          Remove-Item "neo4j.zip"
-          
-          # Redis
-          Write-Host "Downloading Redis..."
-          Invoke-WebRequest -Uri "https://github.com/tporadowski/redis/releases/download/v5.0.14.1/Redis-x64-5.0.14.1.zip" -OutFile "redis.zip"
-          New-Item -ItemType Directory -Force -Path "deps/windows/runtime/redis"
-          Expand-Archive -Path "redis.zip" -DestinationPath "deps/windows/runtime/redis"
-          Remove-Item "redis.zip"
-
       - name: Prepare build directory
         shell: powershell
         run: |
-          # 创建构建目录
-          New-Item -ItemType Directory -Force -Path "build/windows/runtime/python"
-          New-Item -ItemType Directory -Force -Path "build/windows/runtime/neo4j"
-          New-Item -ItemType Directory -Force -Path "build/windows/runtime/redis"
-          New-Item -ItemType Directory -Force -Path "build/windows/app"
-          New-Item -ItemType Directory -Force -Path "build/windows/bin"
+          $ErrorActionPreference = "Continue"
           
-          # 复制运行时
-          Copy-Item -Recurse -Force "deps/windows/runtime/python/*" "build/windows/runtime/python/"
-          Copy-Item -Recurse -Force "deps/windows/runtime/neo4j/*" "build/windows/runtime/neo4j/"
-          Copy-Item -Recurse -Force "deps/windows/runtime/redis/*" "build/windows/runtime/redis/"
+          # 创建目录结构
+          New-Item -ItemType Directory -Force -Path "build\windows\runtime\python"
+          New-Item -ItemType Directory -Force -Path "build\windows\runtime\neo4j"
+          New-Item -ItemType Directory -Force -Path "build\windows\runtime\redis"
+          New-Item -ItemType Directory -Force -Path "build\windows\app"
+          New-Item -ItemType Directory -Force -Path "build\windows\bin"
+          New-Item -ItemType Directory -Force -Path "build\windows\app\data\initial"
           
-          # 复制应用
-          Copy-Item -Recurse -Force "src" "build/windows/app/"
-          Copy-Item -Recurse -Force "web" "build/windows/app/"
-          Copy-Item -Recurse -Force "config" "build/windows/app/"
-          Copy-Item -Recurse -Force "scripts" "build/windows/app/"
-          Copy-Item -Recurse -Force "api" "build/windows/app/"
-          Copy-Item -Force "requirements.txt" "build/windows/app/"
-          Copy-Item -Force "pyproject.toml" "build/windows/app/"
+          # 创建 Python 虚拟环境
+          Write-Host "Creating Python virtual environment..."
+          python -m venv "build\windows\runtime\python"
           
-          # 复制初始数据
-          if (Test-Path "data/initial") {
-            New-Item -ItemType Directory -Force -Path "build/windows/app/data/initial"
-            Copy-Item -Recurse -Force "data/initial/*" "build/windows/app/data/initial/"
-          }
+          # 安装依赖
+          Write-Host "Installing Python dependencies..."
+          & "build\windows\runtime\python\Scripts\pip.exe" install --upgrade pip -q
+          & "build\windows\runtime\python\Scripts\pip.exe" install -r requirements.txt -q 2>$null
           
-          # 复制脚本
-          Copy-Item -Force "bin/windows/*.bat" "build/windows/bin/"
+          # 下载 Neo4j
+          Write-Host "Downloading Neo4j..."
+          Invoke-WebRequest -Uri "https://dist.neo4j.org/neo4j-community-5.26.0-windows.zip" -OutFile "neo4j.zip"
+          Expand-Archive -Path "neo4j.zip" -DestinationPath "build\runtime-tmp"
+          Move-Item "build\runtime-tmp\neo4j-community-5.26.0\*" "build\windows\runtime\neo4j\"
+          Remove-Item -Recurse -Force "build\runtime-tmp"
+          Remove-Item "neo4j.zip"
+          
+          # Redis (使用 Memurai 或跳过)
+          Write-Host "Skipping Redis (use system Redis if needed)..."
+          
+          # 复制应用代码
+          Write-Host "Copying application files..."
+          Copy-Item -Recurse -Force "src" "build\windows\app\"
+          Copy-Item -Recurse -Force "web" "build\windows\app\"
+          Copy-Item -Recurse -Force "config" "build\windows\app\"
+          Copy-Item -Recurse -Force "scripts" "build\windows\app\"
+          Copy-Item -Recurse -Force "api" "build\windows\app\"
+          Copy-Item -Force "requirements.txt" "build\windows\app\"
+          Copy-Item -Force "pyproject.toml" "build\windows\app\"
+          Copy-Item -Recurse -Force "data\initial\*" "build\windows\app\data\initial\"
+          Copy-Item -Force "bin\windows\start.bat" "build\windows\bin\"
+          Copy-Item -Force "bin\windows\stop.bat" "build\windows\bin\"
+          
+          Write-Host "Build directory prepared."
 
       - name: Build installer
         shell: powershell
         run: |
-          choco install innosetup -y
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "installer\windows\jobgraph.iss"
-
-      - name: Upload online installer
-        uses: actions/upload-artifact@v4
-        with:
-          name: JobGraph-Windows-Online
-          path: Output/JobGraph-Setup-Windows-x64.exe
-
-      - name: Download Python packages for offline
-        shell: powershell
-        run: |
-          New-Item -ItemType Directory -Force -Path "build/windows/app/lib/python"
-          & "deps/windows/runtime/python/python.exe" -m pip download -r requirements.txt -d "build/windows/app/lib/python"
-
-      - name: Build offline installer
-        shell: powershell
-        run: |
-          # 创建离线版 Inno Setup 配置
+          $BUILD_DIR = "$PWD\build\windows"
+          
+          # 生成 ISS 配置文件（使用绝对路径）
           $issContent = @"
           [Setup]
           AppName=JobGraph
@@ -155,38 +130,44 @@ jobs:
           AppPublisher=JobGraph
           DefaultDirName={autopf}\JobGraph
           DefaultGroupName=JobGraph
-          OutputBaseFilename=JobGraph-Setup-Windows-x64-Offline
+          OutputBaseFilename=JobGraph-Setup-Windows-x64
+          OutputDir=$PWD\Output
           Compression=lzma2
           SolidCompression=yes
           
           [Files]
-          Source: "build\windows\runtime\*"; DestDir: "{app}\runtime"; Flags: recursesubdirs ignoreversion
-          Source: "build\windows\app\*"; DestDir: "{app}\app"; Flags: recursesubdirs ignoreversion
-          Source: "build\windows\bin\*"; DestDir: "{app}\bin"; Flags: recursesubdirs ignoreversion
+          Source: "$BUILD_DIR\runtime\*"; DestDir: "{app}\runtime"; Flags: recursesubdirs ignoreversion
+          Source: "$BUILD_DIR\app\*"; DestDir: "{app}\app"; Flags: recursesubdirs ignoreversion
+          Source: "$BUILD_DIR\bin\*"; DestDir: "{app}\bin"; Flags: recursesubdirs ignoreversion
           
           [Dirs]
           Name: "{app}\logs"
           Name: "{app}\pids"
-          Name: "{app}\data\redis"
           Name: "{app}\app\data\user"
           
           [Icons]
           Name: "{group}\JobGraph"; Filename: "{app}\bin\start.bat"
-          Name: "{group}\停止 JobGraph"; Filename: "{app}\bin\stop.bat"
+          Name: "{group}\Uninstall JobGraph"; Filename: "{uninstallexe}"
           Name: "{commondesktop}\JobGraph"; Filename: "{app}\bin\start.bat"
           
           [Run]
-          Filename: "{app}\bin\start.bat"; Description: "启动 JobGraph"; Flags: postinstall nowait
-          "@
-          $issContent | Out-File -FilePath "build\offline.iss" -Encoding UTF8
+          Filename: "{app}\bin\start.bat"; Description: "Start JobGraph"; Flags: postinstall nowait
           
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "build\offline.iss"
+          [UninstallRun]
+          Filename: "{app}\bin\stop.bat"; RunOnceId: "StopJobGraph"
+          "@
+          
+          $issContent | Out-File -FilePath "build\jobgraph.iss" -Encoding UTF8
+          
+          # 编译
+          choco install innosetup -y
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "build\jobgraph.iss"
 
-      - name: Upload offline installer
+      - name: Upload online installer
         uses: actions/upload-artifact@v4
         with:
-          name: JobGraph-Windows-Offline
-          path: Output/JobGraph-Setup-Windows-x64-Offline.exe
+          name: JobGraph-Windows-Online
+          path: Output/JobGraph-Setup-Windows-x64.exe
 
   # ============================================================
   # 创建 Release
@@ -194,11 +175,15 @@ jobs:
   release:
     needs: [build-linux-online, build-linux-offline, build-windows]
     runs-on: ubuntu-latest
+    if: success()
     permissions:
       contents: write
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
+
+      - name: List artifacts
+        run: ls -la
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -209,40 +194,28 @@ jobs:
             
             ### 下载
             
-            | 平台 | 在线安装包 | 离线安装包 |
-            |------|-----------|-----------|
-            | **Windows** | JobGraph-Setup-Windows-x64.exe | JobGraph-Setup-Windows-x64-Offline.exe |
-            | **Linux** | JobGraph-Linux-x64.run | JobGraph-Linux-x64-Offline.run |
-            
-            ### 在线 vs 离线
-            
-            | 类型 | 文件大小 | 网络要求 | 适用场景 |
-            |------|----------|----------|----------|
-            | **在线安装包** | ~10MB | 需要联网下载依赖 | 网络环境好 |
-            | **离线安装包** | ~500MB | 无需联网 | 无网络/内网环境 |
+            | 平台 | 安装包 |
+            |------|--------|
+            | **Windows** | JobGraph-Setup-Windows-x64.exe |
+            | **Linux** | JobGraph-Linux-x64.run |
             
             ### 安装说明
             
-            #### Windows
-            1. 下载对应的 exe 文件
-            2. 双击运行安装程序
-            3. 按提示完成安装
-            4. 启动 JobGraph，访问 http://localhost:8504
+            **Windows**：双击 exe 文件，按提示安装
             
-            #### Linux
-            1. 下载对应的 .run 文件
-            2. 运行: `chmod +x JobGraph-*.run && ./JobGraph-*.run`
-            3. 按提示完成安装
-            4. 启动: `~/JobGraph/start.sh`
+            **Linux**：
+            ```bash
+            chmod +x JobGraph-Linux-x64.run
+            ./JobGraph-Linux-x64.run
+            ```
+            
+            安装后访问 http://localhost:8504
             
             ### 内置数据
-            - 63 家公司（武汉光谷 + 全国大厂）
-            - 69 个职位（含完整岗位职责和任职要求）
-            - 8 条员工评价
+            - 63 家公司、69 个职位、8 条评价
           files: |
             JobGraph-Linux-Online/JobGraph-Linux-x64.run
             JobGraph-Linux-Offline/JobGraph-Linux-x64-Offline.run
             JobGraph-Windows-Online/JobGraph-Setup-Windows-x64.exe
-            JobGraph-Windows-Offline/JobGraph-Setup-Windows-x64-Offline.exe
           draft: false
           prerelease: false

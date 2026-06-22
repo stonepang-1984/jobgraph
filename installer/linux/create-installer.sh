@@ -18,7 +18,7 @@ echo "=========================================="
 # ============================================================
 # 清理构建目录
 # ============================================================
-echo "[1/5] 清理构建目录..."
+echo "[1/4] 清理构建目录..."
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
 mkdir -p "$OUTPUT_DIR"
@@ -26,61 +26,56 @@ mkdir -p "$OUTPUT_DIR"
 # ============================================================
 # 复制运行时依赖
 # ============================================================
-echo "[2/5] 复制运行时依赖..."
+echo "[2/4] 复制运行时依赖..."
 
 DEPS_DIR="$PROJECT_ROOT/deps/linux"
 
-if [ ! -d "$DEPS_DIR" ]; then
-    echo "错误: 依赖目录不存在，请先运行 installer/linux/download-deps.sh"
-    exit 1
-fi
-
-# 复制 Python
+# 复制 Python 虚拟环境
 if [ -d "$DEPS_DIR/python" ]; then
     cp -r "$DEPS_DIR/python" "$BUILD_DIR/runtime/"
-    echo "  Python 已复制"
+    # 清理不需要的文件
+    rm -rf "$BUILD_DIR/runtime/python/__pycache__" 2>/dev/null || true
+    echo "  Python 环境已复制"
 else
-    echo "错误: Python 未下载"
+    echo "错误: Python 环境不存在，请先运行 installer/linux/download-deps.sh"
     exit 1
 fi
 
 # 复制 Neo4j
 if [ -d "$DEPS_DIR/neo4j" ]; then
     cp -r "$DEPS_DIR/neo4j" "$BUILD_DIR/runtime/"
+    rm -rf "$BUILD_DIR/runtime/neo4j/logs" 2>/dev/null || true
+    rm -rf "$BUILD_DIR/runtime/neo4j/data" 2>/dev/null || true
     echo "  Neo4j 已复制"
 else
     echo "错误: Neo4j 未下载"
     exit 1
 fi
 
-# 复制 Redis
-if [ -d "$DEPS_DIR/redis" ]; then
-    cp -r "$DEPS_DIR/redis" "$BUILD_DIR/runtime/"
-    echo "  Redis 已复制"
-else
-    echo "错误: Redis 未下载"
-    exit 1
-fi
-
 # ============================================================
 # 复制应用程序
 # ============================================================
-echo "[3/5] 复制应用程序..."
+echo "[3/4] 复制应用程序..."
 
-# 复制源代码
 mkdir -p "$BUILD_DIR/app"
 cp -r "$PROJECT_ROOT/src" "$BUILD_DIR/app/"
 cp -r "$PROJECT_ROOT/web" "$BUILD_DIR/app/"
 cp -r "$PROJECT_ROOT/config" "$BUILD_DIR/app/"
 cp -r "$PROJECT_ROOT/scripts" "$BUILD_DIR/app/"
-cp -r "$PROJECT_ROOT/data/initial" "$BUILD_DIR/app/data/" 2>/dev/null || mkdir -p "$BUILD_DIR/app/data/initial"
 cp -r "$PROJECT_ROOT/api" "$BUILD_DIR/app/"
-cp -r "$PROJECT_ROOT/requirements.txt" "$BUILD_DIR/app/"
-cp -r "$PROJECT_ROOT/pyproject.toml" "$BUILD_DIR/app/"
+cp "$PROJECT_ROOT/requirements.txt" "$BUILD_DIR/app/"
+cp "$PROJECT_ROOT/pyproject.toml" "$BUILD_DIR/app/"
+
+# 复制初始数据
+if [ -d "$PROJECT_ROOT/data/initial" ]; then
+    mkdir -p "$BUILD_DIR/app/data/initial"
+    cp -r "$PROJECT_ROOT/data/initial/"* "$BUILD_DIR/app/data/initial/"
+fi
 
 # 复制启动脚本
 mkdir -p "$BUILD_DIR/bin"
-cp -r "$PROJECT_ROOT/bin/linux/"* "$BUILD_DIR/bin/"
+cp "$PROJECT_ROOT/bin/linux/start.sh" "$BUILD_DIR/bin/"
+cp "$PROJECT_ROOT/bin/linux/stop.sh" "$BUILD_DIR/bin/"
 chmod +x "$BUILD_DIR/bin/"*.sh
 
 echo "  应用程序已复制"
@@ -88,7 +83,7 @@ echo "  应用程序已复制"
 # ============================================================
 # 创建安装脚本
 # ============================================================
-echo "[4/5] 创建安装脚本..."
+echo "[4/4] 创建安装脚本..."
 
 cat > "$BUILD_DIR/install.sh" << 'INSTALL_EOF'
 #!/bin/bash
@@ -103,7 +98,6 @@ echo "安装 JobGraph"
 echo "=========================================="
 echo ""
 
-# 获取安装目录
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_DIR="$HOME/JobGraph"
 
@@ -118,22 +112,14 @@ cp -r "$SCRIPT_DIR/app" "$INSTALL_DIR/"
 cp -r "$SCRIPT_DIR/bin" "$INSTALL_DIR/"
 mkdir -p "$INSTALL_DIR/logs"
 mkdir -p "$INSTALL_DIR/pids"
-mkdir -p "$INSTALL_DIR/data/redis"
 mkdir -p "$INSTALL_DIR/app/data/user"
-
 echo "  文件已复制"
 
-# 安装 Python 依赖
-echo "[2/3] 安装 Python 依赖..."
-PYTHON="$INSTALL_DIR/runtime/python/install/bin/python3"
-cd "$INSTALL_DIR/app"
-$PYTHON -m pip install -r requirements.txt -q 2>/dev/null || echo "  部分依赖安装失败，继续..."
+# 设置权限
+chmod +x "$INSTALL_DIR/bin/"*.sh
 
-echo "  依赖已安装"
-
-# 创建桌面快捷方式
-echo "[3/3] 创建快捷方式..."
-
+# 创建快捷方式
+echo "[2/3] 创建快捷方式..."
 cat > "$INSTALL_DIR/start.sh" << START_EOF
 #!/bin/bash
 cd "$INSTALL_DIR"
@@ -147,7 +133,6 @@ cd "$INSTALL_DIR"
 ./bin/stop.sh
 STOP_EOF
 chmod +x "$INSTALL_DIR/stop.sh"
-
 echo "  快捷方式已创建"
 
 # 完成
@@ -156,49 +141,26 @@ echo "=========================================="
 echo "安装完成！"
 echo "=========================================="
 echo ""
-echo "启动 JobGraph:"
-echo "  cd $INSTALL_DIR"
-echo "  ./start.sh"
-echo ""
-echo "或直接访问: http://localhost:8504"
+echo "启动: cd $INSTALL_DIR && ./start.sh"
+echo "访问: http://localhost:8504"
 echo ""
 INSTALL_EOF
 
 chmod +x "$BUILD_DIR/install.sh"
 
-echo "  安装脚本已创建"
-
-# ============================================================
 # 创建自解压包
-# ============================================================
-echo "[5/5] 创建自解压包..."
-
-# 检查 makeself 是否安装
 if ! command -v makeself &> /dev/null; then
-    echo "安装 makeself..."
-    if command -v apt-get &> /dev/null; then
-        sudo apt-get install -y makeself
-    elif command -v yum &> /dev/null; then
-        sudo yum install -y makeself
-    else
-        echo "错误: 请先安装 makeself"
-        echo "  Ubuntu/Debian: sudo apt-get install makeself"
-        echo "  CentOS/RHEL: sudo yum install makeself"
-        exit 1
-    fi
+    echo "错误: makeself 未安装"
+    exit 1
 fi
 
-# 创建自解压包
 makeself "$BUILD_DIR" "$OUTPUT_DIR/JobGraph-Linux-x64.run" "JobGraph Installer" ./install.sh
+
+FILE_SIZE=$(du -h "$OUTPUT_DIR/JobGraph-Linux-x64.run" | cut -f1)
 
 echo ""
 echo "=========================================="
 echo "安装包创建完成！"
 echo "=========================================="
-echo ""
-echo "输出文件: $OUTPUT_DIR/JobGraph-Linux-x64.run"
-echo ""
-echo "安装方法:"
-echo "  chmod +x JobGraph-Linux-x64.run"
-echo "  ./JobGraph-Linux-x64.run"
+echo "文件: $OUTPUT_DIR/JobGraph-Linux-x64.run ($FILE_SIZE)"
 echo ""
