@@ -61,10 +61,28 @@
 
 下载安装包，无需安装任何依赖：
 
-| 平台 | 下载 | 安装方式 |
-|------|------|----------|
-| **Windows** | [JobGraph-Setup-Windows-x64.exe](../../releases/latest) | 双击安装 |
-| **Linux** | [JobGraph-Linux-x64.run](../../releases/latest) | `./JobGraph-Linux-x64.run` |
+| 平台 | 在线安装包 | 离线安装包 |
+|------|-----------|-----------|
+| **Windows** | [JobGraph-Setup-Windows-x64.exe](../../releases/latest) | [JobGraph-Setup-Windows-x64-Offline.exe](../../releases/latest) |
+| **Linux** | [JobGraph-Linux-x64.run](../../releases/latest) | [JobGraph-Linux-x64-Offline.run](../../releases/latest) |
+
+**在线 vs 离线**：
+
+| 类型 | 文件大小 | 网络要求 | 适用场景 |
+|------|----------|----------|----------|
+| **在线安装包** | ~10MB | 需要联网下载依赖 | 网络环境好 |
+| **离线安装包** | ~500MB | 无需联网 | 无网络/内网环境 |
+
+**安装方法**：
+
+```bash
+# Windows
+# 双击 exe 文件，按提示安装
+
+# Linux
+chmod +x JobGraph-*.run
+./JobGraph-*.run
+```
 
 **就这么简单！** 安装后自动启动，访问 http://localhost:8504 即可使用。
 

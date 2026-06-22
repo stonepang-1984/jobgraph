@@ -7,9 +7,59 @@ on:
 
 jobs:
   # ============================================================
-  # Windows 构建
+  # Linux 在线安装包
   # ============================================================
-  build-windows:
+  build-linux-online:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y makeself
+
+      - name: Download dependencies
+        run: ./installer/linux/download-deps.sh
+
+      - name: Create online installer
+        run: ./installer/linux/create-installer.sh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JobGraph-Linux-Online
+          path: dist/JobGraph-Linux-x64.run
+
+  # ============================================================
+  # Linux 离线安装包
+  # ============================================================
+  build-linux-offline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y makeself
+
+      - name: Download dependencies
+        run: ./installer/linux/download-deps.sh
+
+      - name: Create offline installer
+        run: ./installer/linux/create-offline-installer.sh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JobGraph-Linux-Offline
+          path: dist/JobGraph-Linux-x64-Offline.run
+
+  # ============================================================
+  # Windows 在线安装包
+  # ============================================================
+  build-windows-online:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,12 +79,10 @@ jobs:
           mkdir -p build/windows/app
           mkdir -p build/windows/bin
           
-          # 复制运行时
           xcopy /E /I deps\windows\runtime\python build\windows\runtime\python
           xcopy /E /I deps\windows\runtime\neo4j build\windows\runtime\neo4j
           xcopy /E /I deps\windows\runtime\redis build\windows\runtime\redis
           
-          # 复制应用
           xcopy /E /I src build\windows\app\src
           xcopy /E /I web build\windows\app\web
           xcopy /E /I config build\windows\app\config
@@ -43,10 +91,8 @@ jobs:
           copy requirements.txt build\windows\app\
           copy pyproject.toml build\windows\app\
           
-          # 复制数据
           if exist data\initial xcopy /E /I data\initial build\windows\app\data\initial
           
-          # 复制脚本
           copy bin\windows\*.bat build\windows\bin\
         shell: cmd
 
@@ -59,39 +105,106 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: JobGraph-Windows
+          name: JobGraph-Windows-Online
           path: Output/JobGraph-Setup-Windows-x64.exe
 
   # ============================================================
-  # Linux 构建
+  # Windows 离线安装包
   # ============================================================
-  build-linux:
-    runs-on: ubuntu-latest
+  build-windows-offline:
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y makeself
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
       - name: Download dependencies
-        run: ./installer/linux/download-deps.sh
+        run: .\installer\windows\download-deps.bat
+        shell: cmd
 
-      - name: Create installer
-        run: ./installer/linux/create-installer.sh
+      - name: Prepare build directory
+        run: |
+          mkdir -p build/windows-offline/runtime
+          mkdir -p build/windows-offline/app
+          mkdir -p build/windows-offline/bin
+          
+          xcopy /E /I deps\windows\runtime\python build\windows-offline\runtime\python
+          xcopy /E /I deps\windows\runtime\neo4j build\windows-offline\runtime\neo4j
+          xcopy /E /I deps\windows\runtime\redis build\windows-offline\runtime\redis
+          
+          xcopy /E /I src build\windows-offline\app\src
+          xcopy /E /I web build\windows-offline\app\web
+          xcopy /E /I config build\windows-offline\app\config
+          xcopy /E /I scripts build\windows-offline\app\scripts
+          xcopy /E /I api build\windows-offline\app\api
+          copy requirements.txt build\windows-offline\app\
+          copy pyproject.toml build\windows-offline\app\
+          
+          if exist data\initial xcopy /E /I data\initial build\windows-offline\app\data\initial
+          
+          copy bin\windows\*.bat build\windows-offline\bin\
+        shell: cmd
+
+      - name: Download Python packages
+        run: |
+          cd build\windows-offline\app
+          mkdir lib\python
+          ..\..\deps\windows\runtime\python\python.exe -m pip download -r ..\..\requirements.txt -d lib\python
+        shell: cmd
+
+      - name: Build installer
+        run: |
+          choco install innosetup -y
+          
+          # 创建 Inno Setup 配置
+          @'
+          [Setup]
+          AppName=JobGraph
+          AppVersion=1.0.0
+          AppPublisher=JobGraph
+          DefaultDirName={autopf}\JobGraph
+          DefaultGroupName=JobGraph
+          OutputBaseFilename=JobGraph-Setup-Windows-x64-Offline
+          Compression=lzma2
+          SolidCompression=yes
+          
+          [Files]
+          Source: "build\windows-offline\runtime\*"; DestDir: "{app}\runtime"; Flags: recursesubdirs ignoreversion
+          Source: "build\windows-offline\app\*"; DestDir: "{app}\app"; Flags: recursesubdirs ignoreversion
+          Source: "build\windows-offline\bin\*"; DestDir: "{app}\bin"; Flags: recursesubdirs ignoreversion
+          
+          [Dirs]
+          Name: "{app}\logs"
+          Name: "{app}\pids"
+          Name: "{app}\data\redis"
+          Name: "{app}\app\data\user"
+          
+          [Icons]
+          Name: "{group}\JobGraph"; Filename: "{app}\bin\start.bat"
+          Name: "{group}\停止 JobGraph"; Filename: "{app}\bin\stop.bat"
+          Name: "{commondesktop}\JobGraph"; Filename: "{app}\bin\start.bat"
+          
+          [Run]
+          Filename: "{app}\bin\start.bat"; Description: "启动 JobGraph"; Flags: postinstall nowait
+          '@ | Out-File -FilePath build\windows-offline\jobgraph-offline.iss -Encoding UTF8
+          
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" build\windows-offline\jobgraph-offline.iss
+        shell: powershell
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: JobGraph-Linux
-          path: dist/JobGraph-Linux-x64.run
+          name: JobGraph-Windows-Offline
+          path: Output/JobGraph-Setup-Windows-x64-Offline.exe
 
   # ============================================================
   # 创建 Release
   # ============================================================
   release:
-    needs: [build-windows, build-linux]
+    needs: [build-linux-online, build-linux-offline, build-windows-online, build-windows-offline]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -102,36 +215,46 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          name: JobGraph v${{ github.ref_name }}
+          name: JobGraph ${{ github.ref_name }}
           body: |
             ## JobGraph ${{ github.ref_name }}
             
             ### 下载
-            - **Windows**: JobGraph-Setup-Windows-x64.exe
-            - **Linux**: JobGraph-Linux-x64.run
+            
+            | 平台 | 在线安装包 | 离线安装包 |
+            |------|-----------|-----------|
+            | **Windows** | JobGraph-Setup-Windows-x64.exe | JobGraph-Setup-Windows-x64-Offline.exe |
+            | **Linux** | JobGraph-Linux-x64.run | JobGraph-Linux-x64-Offline.run |
+            
+            ### 在线 vs 离线
+            
+            | 类型 | 文件大小 | 网络要求 | 适用场景 |
+            |------|----------|----------|----------|
+            | **在线安装包** | 小 (~10MB) | 需要联网下载依赖 | 网络环境好 |
+            | **离线安装包** | 大 (~500MB) | 无需联网 | 无网络/内网环境 |
             
             ### 安装说明
             
             #### Windows
-            1. 下载 `JobGraph-Setup-Windows-x64.exe`
+            1. 下载对应的 exe 文件
             2. 双击运行安装程序
             3. 按提示完成安装
-            4. 启动 JobGraph
+            4. 启动 JobGraph，访问 http://localhost:8504
             
             #### Linux
-            1. 下载 `JobGraph-Linux-x64.run`
-            2. 运行: `chmod +x JobGraph-Linux-x64.run && ./JobGraph-Linux-x64.run`
+            1. 下载对应的 .run 文件
+            2. 运行: `chmod +x JobGraph-*.run && ./JobGraph-*.run`
             3. 按提示完成安装
             4. 启动: `~/JobGraph/start.sh`
             
-            ### 功能
-            - 简历上传解析
-            - 智能职位匹配
-            - 关键词订阅提醒
-            - 公司画像
-            - 避坑指南
+            ### 内置数据
+            - 63 家公司（武汉光谷 + 全国大厂）
+            - 69 个职位（含完整岗位职责和任职要求）
+            - 8 条员工评价
           files: |
-            JobGraph-Windows/JobGraph-Setup-Windows-x64.exe
-            JobGraph-Linux/JobGraph-Linux-x64.run
+            JobGraph-Linux-Online/JobGraph-Linux-x64.run
+            JobGraph-Linux-Offline/JobGraph-Linux-x64-Offline.run
+            JobGraph-Windows-Online/JobGraph-Setup-Windows-x64.exe
+            JobGraph-Windows-Offline/JobGraph-Setup-Windows-x64-Offline.exe
           draft: false
           prerelease: false
