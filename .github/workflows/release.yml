@@ -196,11 +196,20 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download artifacts
+      - name: Download Linux online
         uses: actions/download-artifact@v4
+        with:
+          name: JobGraph-Linux-Online
+          path: artifacts/linux-online
 
-      - name: List artifacts
-        run: find . -name "*.run" -o -name "*.exe" | head -20
+      - name: Download Linux offline
+        uses: actions/download-artifact@v4
+        with:
+          name: JobGraph-Linux-Offline
+          path: artifacts/linux-offline
+
+      - name: List files
+        run: ls -la artifacts/linux-online/ artifacts/linux-offline/
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -213,7 +222,7 @@ jobs:
             
             | 平台 | 安装包 |
             |------|--------|
-            | **Linux** | JobGraph-Linux-x64.run |
+            | **Linux (在线)** | JobGraph-Linux-x64.run |
             | **Linux (离线)** | JobGraph-Linux-x64-Offline.run |
             
             ### 安装说明
@@ -238,7 +247,7 @@ jobs:
             ### 内置数据
             - 63 家公司、69 个职位、8 条评价
           files: |
-            JobGraph-Linux-Online/JobGraph-Linux-x64.run
-            JobGraph-Linux-Offline/JobGraph-Linux-x64-Offline.run
+            artifacts/linux-online/*
+            artifacts/linux-offline/*
           draft: false
           prerelease: false
