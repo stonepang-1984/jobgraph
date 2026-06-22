@@ -7,7 +7,8 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEPS_DIR="$SCRIPT_DIR/../deps/linux"
+PROJECT_ROOT="$SCRIPT_DIR/../.."
+DEPS_DIR="$PROJECT_ROOT/deps/linux"
 
 mkdir -p "$DEPS_DIR"
 cd "$DEPS_DIR"
