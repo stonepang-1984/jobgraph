@@ -6,10 +6,7 @@ on:
       - 'v*'
 
 jobs:
-  # ============================================================
-  # Linux 在线安装包
-  # ============================================================
-  build-linux-online:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,199 +14,28 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y makeself redis-server
+          sudo apt-get install -y makeself
 
-      - name: Prepare dependencies
-        run: ./installer/linux/download-deps.sh
-
-      - name: Create online installer
+      - name: Create installer
         run: ./installer/linux/create-installer.sh
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: JobGraph-Linux-Online
+          name: JobGraph-Linux
           path: dist/JobGraph-Linux-x64.run
 
-  # ============================================================
-  # Linux 离线安装包
-  # ============================================================
-  build-linux-offline:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y makeself redis-server
-
-      - name: Prepare dependencies
-        run: ./installer/linux/download-deps.sh
-
-      - name: Create offline installer
-        run: ./installer/linux/create-offline-installer.sh
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: JobGraph-Linux-Offline
-          path: dist/JobGraph-Linux-x64-Offline.run
-
-  # ============================================================
-  # Windows 安装包
-  # ============================================================
-  build-windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Prepare build directory
-        shell: powershell
-        run: |
-          $ErrorActionPreference = "Continue"
-          
-          # 创建目录结构
-          New-Item -ItemType Directory -Force -Path "build\windows\runtime\python"
-          New-Item -ItemType Directory -Force -Path "build\windows\runtime\neo4j"
-          New-Item -ItemType Directory -Force -Path "build\windows\runtime\redis"
-          New-Item -ItemType Directory -Force -Path "build\windows\app"
-          New-Item -ItemType Directory -Force -Path "build\windows\bin"
-          New-Item -ItemType Directory -Force -Path "build\windows\app\data\initial"
-          
-          # 创建 Python 虚拟环境
-          Write-Host "Creating Python virtual environment..."
-          python -m venv "build\windows\runtime\python"
-          
-          # 安装依赖 (只安装核心依赖，跳过大的可选依赖)
-          Write-Host "Installing Python dependencies..."
-          & "build\windows\runtime\python\Scripts\pip.exe" install --upgrade pip -q
-          & "build\windows\runtime\python\Scripts\pip.exe" install -r requirements.txt -q 2>$null
-          
-          # 清理不需要的文件减小体积
-          Write-Host "Cleaning up..."
-          $venvLib = "build\windows\runtime\python\Lib\site-packages"
-          # 删除测试文件和文档
-          Get-ChildItem -Path $venvLib -Recurse -Directory -Filter "__pycache__" | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-          Get-ChildItem -Path $venvLib -Recurse -Directory -Filter "tests" | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-          Get-ChildItem -Path $venvLib -Recurse -Directory -Filter "test" | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-          Get-ChildItem -Path $venvLib -Recurse -Include "*.pyc" | Remove-Item -Force -ErrorAction SilentlyContinue
-          
-          # 下载 Neo4j
-          Write-Host "Downloading Neo4j..."
-          Invoke-WebRequest -Uri "https://dist.neo4j.org/neo4j-community-5.26.0-windows.zip" -OutFile "neo4j.zip"
-          Expand-Archive -Path "neo4j.zip" -DestinationPath "build\runtime-tmp"
-          Move-Item "build\runtime-tmp\neo4j-community-5.26.0\*" "build\windows\runtime\neo4j\"
-          Remove-Item -Recurse -Force "build\runtime-tmp"
-          Remove-Item "neo4j.zip"
-          
-          # Redis (使用 Memurai 或跳过)
-          Write-Host "Skipping Redis (use system Redis if needed)..."
-          
-          # 复制应用代码
-          Write-Host "Copying application files..."
-          Copy-Item -Recurse -Force "src" "build\windows\app\"
-          Copy-Item -Recurse -Force "web" "build\windows\app\"
-          Copy-Item -Recurse -Force "config" "build\windows\app\"
-          Copy-Item -Recurse -Force "scripts" "build\windows\app\"
-          Copy-Item -Recurse -Force "api" "build\windows\app\"
-          Copy-Item -Force "requirements.txt" "build\windows\app\"
-          Copy-Item -Force "pyproject.toml" "build\windows\app\"
-          Copy-Item -Recurse -Force "data\initial\*" "build\windows\app\data\initial\"
-          Copy-Item -Force "bin\windows\start.bat" "build\windows\bin\"
-          Copy-Item -Force "bin\windows\stop.bat" "build\windows\bin\"
-          
-          Write-Host "Build directory prepared."
-
-      - name: Build installer
-        shell: powershell
-        run: |
-          $BUILD_DIR = "$PWD\build\windows"
-          
-          # 生成 ISS 配置文件（使用绝对路径）
-          $issContent = @"
-          [Setup]
-          AppName=JobGraph
-          AppVersion=1.0.0
-          AppPublisher=JobGraph
-          DefaultDirName={autopf}\JobGraph
-          DefaultGroupName=JobGraph
-          OutputBaseFilename=JobGraph-Setup-Windows-x64
-          OutputDir=$PWD\Output
-          Compression=lzma2
-          SolidCompression=yes
-          
-          [Files]
-          Source: "$BUILD_DIR\runtime\*"; DestDir: "{app}\runtime"; Flags: recursesubdirs ignoreversion
-          Source: "$BUILD_DIR\app\*"; DestDir: "{app}\app"; Flags: recursesubdirs ignoreversion
-          Source: "$BUILD_DIR\bin\*"; DestDir: "{app}\bin"; Flags: recursesubdirs ignoreversion
-          
-          [Dirs]
-          Name: "{app}\logs"
-          Name: "{app}\pids"
-          Name: "{app}\app\data\user"
-          
-          [Icons]
-          Name: "{group}\JobGraph"; Filename: "{app}\bin\start.bat"
-          Name: "{group}\Uninstall JobGraph"; Filename: "{uninstallexe}"
-          Name: "{commondesktop}\JobGraph"; Filename: "{app}\bin\start.bat"
-          
-          [Run]
-          Filename: "{app}\bin\start.bat"; Description: "Start JobGraph"; Flags: postinstall nowait
-          
-          [UninstallRun]
-          Filename: "{app}\bin\stop.bat"; RunOnceId: "StopJobGraph"
-          "@
-          
-          $issContent | Out-File -FilePath "build\jobgraph.iss" -Encoding UTF8
-          
-          # 编译
-          choco install innosetup -y
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "build\jobgraph.iss"
-          
-          # 检查文件大小
-          $exePath = "Output\JobGraph-Setup-Windows-x64.exe"
-          if (Test-Path $exePath) {
-            $size = (Get-Item $exePath).Length / 1MB
-            Write-Host "安装包大小: $([math]::Round($size, 2)) MB"
-          }
-
-      - name: Upload online installer
-        uses: actions/upload-artifact@v4
-        with:
-          name: JobGraph-Windows
-          path: Output/JobGraph-Setup-Windows-x64.exe
-          if-no-files-found: warn
-
-  # ============================================================
-  # 创建 Release
-  # ============================================================
   release:
-    needs: [build-linux-online, build-linux-offline, build-windows]
+    needs: build
     runs-on: ubuntu-latest
-    if: success()
     permissions:
       contents: write
     steps:
-      - name: Download Linux online
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: JobGraph-Linux-Online
-          path: artifacts/linux-online
-
-      - name: Download Linux offline
-        uses: actions/download-artifact@v4
-        with:
-          name: JobGraph-Linux-Offline
-          path: artifacts/linux-offline
-
-      - name: List files
-        run: ls -la artifacts/linux-online/ artifacts/linux-offline/
+          name: JobGraph-Linux
+          path: artifacts
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -220,34 +46,30 @@ jobs:
             
             ### 下载
             
-            | 平台 | 安装包 |
-            |------|--------|
-            | **Linux (在线)** | JobGraph-Linux-x64.run |
-            | **Linux (离线)** | JobGraph-Linux-x64-Offline.run |
+            **Linux**: `JobGraph-Linux-x64.run`
             
             ### 安装说明
             
-            **Linux (在线版，需联网)**：
             ```bash
             chmod +x JobGraph-Linux-x64.run
             ./JobGraph-Linux-x64.run
             ```
             
-            **Linux (离线版，无需联网)**：
-            ```bash
-            chmod +x JobGraph-Linux-x64-Offline.run
-            ./JobGraph-Linux-x64-Offline.run
-            ```
+            安装程序会自动下载并安装所有依赖（Python、Neo4j、Redis）。
             
-            安装后访问 http://localhost:8504
+            安装完成后访问 http://localhost:8504
             
             ### Windows 用户
-            Windows 版本需要手动安装，请参考项目文档。
+            
+            Windows 用户请从源码安装：
+            ```bash
+            git clone <repo-url>
+            cd jobgraph
+            make quickstart
+            ```
             
             ### 内置数据
             - 63 家公司、69 个职位、8 条评价
-          files: |
-            artifacts/linux-online/*
-            artifacts/linux-offline/*
+          files: artifacts/*
           draft: false
           prerelease: false

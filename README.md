@@ -57,36 +57,22 @@
 
 ## 🚀 快速开始
 
-### 一键安装 (推荐)
+### 一键安装 (Linux)
 
-下载安装包，无需安装任何依赖：
-
-| 平台 | 在线安装包 | 离线安装包 |
-|------|-----------|-----------|
-| **Windows** | [JobGraph-Setup-Windows-x64.exe](../../releases/latest) | [JobGraph-Setup-Windows-x64-Offline.exe](../../releases/latest) |
-| **Linux** | [JobGraph-Linux-x64.run](../../releases/latest) | [JobGraph-Linux-x64-Offline.run](../../releases/latest) |
-
-**在线 vs 离线**：
-
-| 类型 | 文件大小 | 网络要求 | 适用场景 |
-|------|----------|----------|----------|
-| **在线安装包** | ~10MB | 需要联网下载依赖 | 网络环境好 |
-| **离线安装包** | ~500MB | 无需联网 | 无网络/内网环境 |
-
-**安装方法**：
+下载安装包，自动安装所有依赖：
 
 ```bash
-# Windows
-# 双击 exe 文件，按提示安装
+# 下载安装包
+wget https://github.com/stonepang-1984/jobgraph/releases/latest/download/JobGraph-Linux-x64.run
 
-# Linux
-chmod +x JobGraph-*.run
-./JobGraph-*.run
+# 安装（会自动下载 Python、Neo4j 等依赖）
+chmod +x JobGraph-Linux-x64.run
+./JobGraph-Linux-x64.run
 ```
 
-**就这么简单！** 安装后自动启动，访问 http://localhost:8504 即可使用。
+安装完成后访问 http://localhost:8504
 
-### 从源码启动 (开发者)
+### 从源码启动 (所有平台)
 
 ```bash
 # 克隆项目
