@@ -57,31 +57,32 @@
 
 ## 🚀 快速开始
 
-### 一键安装 (Linux)
+### Windows 一键安装
 
-下载安装包，自动安装所有依赖：
+1. 下载项目：`git clone <repository-url>` 或下载 ZIP
+2. 双击 `install.bat`（自动安装 Python 依赖、下载 Neo4j）
+3. 安装完成后，双击 `start.bat` 启动
+4. 访问 http://localhost:8504
+
+> 首次安装需要下载 PyTorch 等依赖（约 2GB），请耐心等待
+
+### Linux 一键安装
 
 ```bash
 # 下载安装包
 wget https://github.com/stonepang-1984/jobgraph/releases/latest/download/JobGraph-Linux-x64.run
 
-# 安装（会自动下载 Python、Neo4j 等依赖）
+# 安装（会自动下载依赖）
 chmod +x JobGraph-Linux-x64.run
 ./JobGraph-Linux-x64.run
 ```
 
-安装完成后访问 http://localhost:8504
-
-### 从源码启动 (所有平台)
+### 从源码启动 (开发者)
 
 ```bash
-# 克隆项目
 git clone <repository-url>
 cd jobgraph
-
-# 一键启动 (自动安装依赖、启动数据库、导入初始数据)
 make quickstart
-
 # 访问 http://localhost:8504
 ```
 
