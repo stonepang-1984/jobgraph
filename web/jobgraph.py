@@ -363,10 +363,10 @@ elif page == "📄 简历上传":
                     current_title=current_title,
                     experience_years=experience_years,
                     education=education,
-                    skills=[s.strip() for s in skills_input.split(",") if s.strip()],
+                    skills=[SKILL_STANDARD_MAP.get(s.strip().lower(), s.strip().title()) for s in skills_input.replace("，", ",").split(",") if s.strip()],
                     desired_salary_min=desired_salary * 1000 * 0.8 if desired_salary > 0 else None,
                     desired_salary_max=desired_salary * 1000 * 1.2 if desired_salary > 0 else None,
-                    desired_locations=[location] if location else [],
+                    desired_locations=[loc.strip() for loc in location.replace("，", ",").split(",") if loc.strip()] if location else [],
                     prefer_remote=prefer_remote,
                     source="resume",
                     device_id=user_manager.device_id,
@@ -489,12 +489,49 @@ elif page == "📄 简历上传":
         has_matches = match_result and match_result.matches and len(match_result.matches) > 0
         
         if not has_matches:
-            # 没有匹配结果，提示技能差距大
-            st.warning("⚡ **匹配结果为空**：您的技能与当前职位需求差距较大")
-            st.info("💡 **建议**：")
+            # 没有匹配结果，分析原因并提供建议
+            st.warning("⚡ **匹配结果为空**")
+            
+            # 分析可能的原因
+            st.write("**可能原因分析：**")
+            
+            user_skills = set(user_profile_data.get("skills", []))
+            user_locations = st.session_state.get("user_profile_data", {}).get("desired_locations", [])
+            
+            # 查询数据库中的热门技能
+            from src.graph.neo4j_client import neo4j_client
+            try:
+                result = neo4j_client.execute_query('''
+                    MATCH (j:Job)
+                    WHERE j.skills IS NOT NULL
+                    UNWIND j.skills AS skill
+                    RETURN skill, count(*) AS cnt
+                    ORDER BY cnt DESC
+                    LIMIT 20
+                ''')
+                hot_skills = [r["skill"] for r in result]
+                
+                # 计算技能重叠
+                overlap = user_skills & set(hot_skills)
+                
+                if not overlap:
+                    st.write("1. ❌ **技能不匹配**：您的技能与当前职位需求不匹配")
+                    st.write(f"   热门技能: {', '.join(hot_skills[:10])}")
+                else:
+                    st.write(f"1. ✅ 技能匹配: {', '.join(overlap)}")
+            except:
+                pass
+            
+            if user_locations:
+                st.write(f"2. 📍 地点限制: {', '.join(user_locations)}")
+                st.write("   建议：扩大地点范围或留空")
+            
+            st.divider()
+            st.write("**💡 建议：**")
             st.markdown("""
-            1. 尝试手动输入职位信息进行匹配
-            2. 或者修改简历，添加更多相关技能
+            1. **放宽地点限制**：将期望地点留空，匹配所有城市
+            2. **手动输入职位信息**：使用「智能匹配」页面手动输入
+            3. **查看所有职位**：在「岗位搜索」页面浏览所有职位
             """)
             
             if st.button("📝 手动输入职位信息", key="manual_from_empty2"):

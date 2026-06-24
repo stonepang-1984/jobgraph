@@ -154,7 +154,7 @@ class JobMatcher:
         # 构建学历列表（包含用户学历及以下）
         edu_list = [k for k, v in edu_priority.items() if v <= user_edu_level] if user_edu_level > 0 else []
 
-        # 构建查询条件
+        # 构建查询条件（必须有职位描述）
         conditions = ["j.is_active = true", "j.description IS NOT NULL", "j.description <> ''"]
         params = {"limit": limit}
 
