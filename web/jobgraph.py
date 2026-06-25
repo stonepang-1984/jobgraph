@@ -578,12 +578,13 @@ elif page == "📄 简历上传":
                         )
                         job_manager.create_user_profile(user)
                         
-                        # 保存更新后的简历信息
+                        # 保存更新后的简历信息（格式与原始简历一致）
                         st.session_state["updated_resume"] = {
                             "current_title": user_profile_data.get("current_title", ""),
                             "experience_years": user_profile_data.get("experience_years", 0),
                             "education": user_profile_data.get("education"),
                             "skills": suggested_skills,
+                            "certifications": user_profile_data.get("certifications", []),
                             "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                         }
                         
@@ -599,7 +600,7 @@ elif page == "📄 简历上传":
             else:
                 st.success("✅ 您的技能与职位匹配良好！")
     
-    # 显示更新后的简历
+    # 显示更新后的简历（格式与更新前一致）
     if st.session_state.get("show_updated_resume"):
         st.divider()
         st.subheader("📄 更新后的简历")
@@ -607,16 +608,32 @@ elif page == "📄 简历上传":
         updated = st.session_state.get("updated_resume", {})
         
         col1, col2 = st.columns(2)
+        
         with col1:
-            st.write(f"**当前职位**: {updated.get('current_title', '未设置')}")
+            st.write(f"**当前职位**: {updated.get('current_title', '未识别')}")
             st.write(f"**工作年限**: {updated.get('experience_years', 0)} 年")
-            st.write(f"**学历**: {updated.get('education', '未设置')}")
+            st.write(f"**最高学历**: {updated.get('education', '未识别')}")
+        
         with col2:
             skills = updated.get("skills", [])
-            st.write(f"**技能** ({len(skills)} 项):")
-            st.write(", ".join(skills))
+            if skills:
+                st.write(f"**技能** ({len(skills)} 项):")
+                # 使用标签格式显示技能（与更新前一致）
+                skills_text = " ".join([f"`{s}`" for s in skills[:15]])
+                st.markdown(skills_text)
+                if len(skills) > 15:
+                    st.caption(f"...还有 {len(skills) - 15} 项技能")
+            else:
+                st.write("**技能**: 未识别")
         
-        st.write(f"**更新时间**: {updated.get('updated_at', '')}")
+        # 证书
+        certifications = updated.get("certifications", [])
+        if certifications:
+            st.write(f"**证书**: {', '.join(certifications)}")
+        
+        st.caption(f"更新时间: {updated.get('updated_at', '')}")
+        
+        st.divider()
         
         # 生成可下载的简历文本
         resume_text = f"""个人简历
@@ -626,16 +643,16 @@ elif page == "📄 简历上传":
 --------
 当前职位：{updated.get('current_title', '未设置')}
 工作年限：{updated.get('experience_years', 0)} 年
-学历：{updated.get('education', '未设置')}
+最高学历：{updated.get('education', '未设置')}
 
 技能列表
 --------
-{chr(10).join(f'- {s}' for s in skills)}
+{', '.join(skills)}
 
 更新时间：{updated.get('updated_at', '')}
 """
         
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         with col1:
             st.download_button(
                 label="📥 下载简历 (TXT)",
@@ -645,6 +662,10 @@ elif page == "📄 简历上传":
             )
         with col2:
             if st.button("🔄 重新匹配", type="primary"):
+                st.session_state["show_updated_resume"] = False
+                st.rerun()
+        with col3:
+            if st.button("❌ 关闭预览"):
                 st.session_state["show_updated_resume"] = False
                 st.rerun()
     
