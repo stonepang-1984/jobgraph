@@ -559,7 +559,7 @@ elif page == "📄 简历上传":
                 st.info(f"💡 **建议**：在简历技能部分添加以下技能：")
                 st.markdown(f"```\n{', '.join(suggested_skills)}\n```")
                 
-                col1, col2 = st.columns(2)
+                col1, col2, col3 = st.columns(3)
                 with col1:
                     if st.button("✅ 接受建议，更新简历", type="primary"):
                         import hashlib
@@ -573,11 +573,23 @@ elif page == "📄 简历上传":
                             experience_years=user_profile_data.get("experience_years", 0),
                             education=user_profile_data.get("education"),
                             skills=suggested_skills,
+                            source="resume",
+                            device_id=user_manager.device_id,
                         )
                         job_manager.create_user_profile(user)
                         
+                        # 保存更新后的简历信息
+                        st.session_state["updated_resume"] = {
+                            "current_title": user_profile_data.get("current_title", ""),
+                            "experience_years": user_profile_data.get("experience_years", 0),
+                            "education": user_profile_data.get("education"),
+                            "skills": suggested_skills,
+                            "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        }
+                        
                         st.success("✅ 简历已更新！正在重新匹配...")
                         st.session_state["show_optimization"] = False
+                        st.session_state["show_updated_resume"] = True
                         st.rerun()
                 
                 with col2:
@@ -586,6 +598,55 @@ elif page == "📄 简历上传":
                         st.rerun()
             else:
                 st.success("✅ 您的技能与职位匹配良好！")
+    
+    # 显示更新后的简历
+    if st.session_state.get("show_updated_resume"):
+        st.divider()
+        st.subheader("📄 更新后的简历")
+        
+        updated = st.session_state.get("updated_resume", {})
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write(f"**当前职位**: {updated.get('current_title', '未设置')}")
+            st.write(f"**工作年限**: {updated.get('experience_years', 0)} 年")
+            st.write(f"**学历**: {updated.get('education', '未设置')}")
+        with col2:
+            skills = updated.get("skills", [])
+            st.write(f"**技能** ({len(skills)} 项):")
+            st.write(", ".join(skills))
+        
+        st.write(f"**更新时间**: {updated.get('updated_at', '')}")
+        
+        # 生成可下载的简历文本
+        resume_text = f"""个人简历
+========
+
+基本信息
+--------
+当前职位：{updated.get('current_title', '未设置')}
+工作年限：{updated.get('experience_years', 0)} 年
+学历：{updated.get('education', '未设置')}
+
+技能列表
+--------
+{chr(10).join(f'- {s}' for s in skills)}
+
+更新时间：{updated.get('updated_at', '')}
+"""
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.download_button(
+                label="📥 下载简历 (TXT)",
+                data=resume_text,
+                file_name="resume.txt",
+                mime="text/plain",
+            )
+        with col2:
+            if st.button("🔄 重新匹配", type="primary"):
+                st.session_state["show_updated_resume"] = False
+                st.rerun()
     
     # 手动输入按钮（在 form 外部）
     if st.session_state.get("show_manual_btn"):
