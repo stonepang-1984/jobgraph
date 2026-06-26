@@ -266,6 +266,8 @@ elif page == "📄 简历上传":
                     "certifications": profile.certifications,
                     "work_history": profile.work_history,
                     "projects": profile.projects,
+                    "original_filename": uploaded_file.name,
+                    "file_format": Path(uploaded_file.name).suffix.lower(),
                     "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 }
                 user_data_manager.save_resume_profile(user_id, resume_data)
@@ -579,12 +581,15 @@ elif page == "📄 简历上传":
                         job_manager.create_user_profile(user)
                         
                         # 保存更新后的简历信息（格式与原始简历一致）
+                        saved_profile = user_data_manager.load_resume_profile(user_id)
                         st.session_state["updated_resume"] = {
                             "current_title": user_profile_data.get("current_title", ""),
                             "experience_years": user_profile_data.get("experience_years", 0),
                             "education": user_profile_data.get("education"),
                             "skills": suggested_skills,
                             "certifications": user_profile_data.get("certifications", []),
+                            "file_format": saved_profile.get("file_format", ".txt") if saved_profile else ".txt",
+                            "original_filename": saved_profile.get("original_filename", "resume") if saved_profile else "resume",
                             "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                         }
                         
@@ -635,8 +640,16 @@ elif page == "📄 简历上传":
         
         st.divider()
         
-        # 生成可下载的简历文本
-        resume_text = f"""个人简历
+        # 生成可下载的简历
+        file_format = updated.get("file_format", ".txt")
+        original_filename = updated.get("original_filename", "resume")
+        base_name = Path(original_filename).stem if original_filename else "resume"
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            # TXT 格式下载
+            resume_text = f"""个人简历
 ========
 
 基本信息
@@ -651,21 +664,56 @@ elif page == "📄 简历上传":
 
 更新时间：{updated.get('updated_at', '')}
 """
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
             st.download_button(
                 label="📥 下载简历 (TXT)",
                 data=resume_text,
-                file_name="resume.txt",
+                file_name=f"{base_name}_updated.txt",
                 mime="text/plain",
             )
+        
         with col2:
-            if st.button("🔄 重新匹配", type="primary"):
-                st.session_state["show_updated_resume"] = False
-                st.rerun()
+            # DOCX 格式下载
+            if file_format == ".docx" or st.button("📥 下载简历 (DOCX)"):
+                try:
+                    from docx import Document as DocxDocument
+                    
+                    doc = DocxDocument()
+                    doc.add_heading('个人简历', 0)
+                    
+                    # 基本信息
+                    doc.add_heading('基本信息', level=1)
+                    doc.add_paragraph(f'当前职位：{updated.get("current_title", "未设置")}')
+                    doc.add_paragraph(f'工作年限：{updated.get("experience_years", 0)} 年')
+                    doc.add_paragraph(f'最高学历：{updated.get("education", "未设置")}')
+                    
+                    # 技能列表
+                    doc.add_heading('技能列表', level=1)
+                    doc.add_paragraph(', '.join(skills))
+                    
+                    # 证书
+                    if certifications:
+                        doc.add_heading('证书', level=1)
+                        doc.add_paragraph(', '.join(certifications))
+                    
+                    # 保存到临时文件
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
+                        doc.save(tmp.name)
+                        with open(tmp.name, 'rb') as f:
+                            docx_data = f.read()
+                        os.unlink(tmp.name)
+                    
+                    st.download_button(
+                        label="📥 下载简历 (DOCX)",
+                        data=docx_data,
+                        file_name=f"{base_name}_updated.docx",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    )
+                except Exception as e:
+                    st.warning(f"DOCX 生成失败: {e}")
+        
         with col3:
-            if st.button("❌ 关闭预览"):
+            if st.button("🔄 重新匹配", type="primary"):
                 st.session_state["show_updated_resume"] = False
                 st.rerun()
     
