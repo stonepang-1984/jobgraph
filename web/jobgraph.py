@@ -624,12 +624,21 @@ elif page == "📄 简历管理":
             if missing_hot_skills:
                 st.write("选择要添加到简历的热门技能：")
                 
-                # 用户勾选技能
+                # 用户勾选技能（使用 session_state 管理默认值）
                 selected_skills = []
                 cols = st.columns(3)
                 for i, skill in enumerate(missing_hot_skills[:9]):
                     with cols[i % 3]:
-                        if st.checkbox(skill, key=f"skill_{skill}", value=(i < 3)):
+                        # 设置默认选中状态（只在首次渲染时生效）
+                        default_key = f"_default_skill_{skill}"
+                        if default_key not in st.session_state:
+                            st.session_state[default_key] = (i < 3)
+                        
+                        if st.checkbox(
+                            skill, 
+                            key=f"skill_{skill}", 
+                            value=st.session_state[default_key]
+                        ):
                             selected_skills.append(skill)
                 
                 if selected_skills:
@@ -685,12 +694,21 @@ elif page == "📄 简历管理":
             if missing_skills:
                 st.warning(f"⚡ **技能差距**：匹配职位需要以下技能，您可以选择添加：")
                 
-                # 用户勾选技能
+                # 用户勾选技能（使用 session_state 管理默认值）
                 selected_skills = []
                 cols = st.columns(3)
                 for i, skill in enumerate(sorted(missing_skills)[:9]):
                     with cols[i % 3]:
-                        if st.checkbox(skill, key=f"match_skill_{skill}", value=(i < 3)):
+                        # 设置默认选中状态
+                        default_key = f"_default_match_skill_{skill}"
+                        if default_key not in st.session_state:
+                            st.session_state[default_key] = (i < 3)
+                        
+                        if st.checkbox(
+                            skill, 
+                            key=f"match_skill_{skill}",
+                            value=st.session_state[default_key]
+                        ):
                             selected_skills.append(skill)
                 
                 if selected_skills:
