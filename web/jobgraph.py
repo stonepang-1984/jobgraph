@@ -575,6 +575,7 @@ elif page == "📄 简历管理":
             
             # 查询数据库中的热门技能
             from src.graph.neo4j_client import neo4j_client
+            hot_skills = []
             try:
                 result = neo4j_client.execute_query('''
                     MATCH (j:Job)
@@ -602,17 +603,53 @@ elif page == "📄 简历管理":
                 st.write("   建议：扩大地点范围或留空")
             
             st.divider()
-            st.write("**💡 建议：**")
+            
+            # 自动更新简历建议
+            if hot_skills:
+                st.write("**🔧 自动更新简历：**")
+                st.write("将以下热门技能添加到您的简历中：")
+                
+                # 推荐用户缺少的热门技能
+                missing_hot_skills = [s for s in hot_skills[:10] if s not in user_skills]
+                if missing_hot_skills:
+                    suggested = list(user_skills) + missing_hot_skills[:5]
+                    st.markdown(f"```\n{', '.join(suggested)}\n```")
+                    
+                    if st.button("✅ 自动更新简历", type="primary", key="auto_update_empty"):
+                        import hashlib
+                        user_id = hashlib.md5(
+                            f"{user_manager.device_id}_resume".encode()
+                        ).hexdigest()[:16]
+                        
+                        # 获取当前简历信息
+                        saved_profile = user_data_manager.load_resume_profile(user_id) or {}
+                        
+                        user = UserProfile(
+                            id=user_id,
+                            current_title=user_profile_data.get("current_title", saved_profile.get("current_title", "")),
+                            experience_years=user_profile_data.get("experience_years", saved_profile.get("experience_years", 0)),
+                            education=user_profile_data.get("education", saved_profile.get("education")),
+                            skills=suggested,
+                            source="resume",
+                            device_id=user_manager.device_id,
+                        )
+                        job_manager.create_user_profile(user)
+                        
+                        # 保存更新后的简历
+                        updated_data = {**saved_profile, "skills": suggested, "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+                        user_data_manager.save_resume_profile(user_id, updated_data)
+                        
+                        st.success("✅ 简历已更新！请重新匹配")
+                        st.session_state["show_optimization"] = False
+                        st.rerun()
+            
+            st.divider()
+            st.write("**💡 其他建议：**")
             st.markdown("""
             1. **放宽地点限制**：将期望地点留空，匹配所有城市
             2. **手动输入职位信息**：使用「智能匹配」页面手动输入
             3. **查看所有职位**：在「岗位搜索」页面浏览所有职位
             """)
-            
-            if st.button("📝 手动输入职位信息", key="manual_from_empty2"):
-                st.session_state["page"] = "🎯 智能匹配"
-                st.session_state["show_optimization"] = False
-                st.rerun()
         else:
             # 有匹配结果，分析技能差距
             all_job_skills = set()
