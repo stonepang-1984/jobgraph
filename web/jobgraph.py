@@ -295,8 +295,11 @@ elif page == "📄 简历管理":
     if profile:
         st.divider()
         
-        # 简历文件预览和下载
+        # 重新加载最新的简历数据（可能被优化建议更新过）
         saved_profile = user_data_manager.load_resume_profile(user_id)
+        if saved_profile:
+            profile = type('Profile', (), saved_profile)()
+        
         original_filename = saved_profile.get("original_filename") if saved_profile else None
         
         if original_filename:
@@ -309,55 +312,223 @@ elif page == "📄 简历管理":
                 st.write(f"**保存时间**: {saved_profile.get('saved_at', '未知')}")
             
             with col2:
-                # 下载原始简历
-                file_data = user_data_manager.load_resume_file(user_id, original_filename)
-                if file_data:
-                    st.download_button(
-                        label="📥 下载简历",
-                        data=file_data,
-                        file_name=original_filename,
-                        mime="application/octet-stream",
-                    )
+                # 生成更新后的文件（保持原始格式）
+                try:
+                    # 获取当前简历数据（可能已更新）
+                    current_profile = st.session_state.get("resume_profile", saved_profile or {})
+                    current_skills = current_profile.get("skills", [])
+                    file_ext = Path(original_filename).suffix.lower()
+                    
+                    if file_ext == ".docx":
+                        # 修改原始 DOCX 文件中的技能部分
+                        file_path = user_data_manager.get_resume_file_path(user_id, original_filename)
+                        if file_path and file_path.exists():
+                            from docx import Document as DocxDocument
+                            doc = DocxDocument(str(file_path))
+                            
+                            # 查找并更新技能相关段落
+                            skills_text = ", ".join(current_skills)
+                            skill_keywords = ["技能", "技术栈", "熟悉", "精通", "掌握"]
+                            
+                            updated = False
+                            skill_section_found = False
+                            
+                            for i, para in enumerate(doc.paragraphs):
+                                text = para.text.strip()
+                                
+                                # 查找技能标题
+                                if any(kw == text or f"**{kw}**" in text or f"# {kw}" in text for kw in ["技能", "技能列表", "技术栈", "Skills"]):
+                                    skill_section_found = True
+                                    continue
+                                
+                                # 如果找到了技能标题，更新下一个非空段落
+                                if skill_section_found and text and len(text) > 2:
+                                    # 检查是否是技能内容（包含逗号或技术词汇）
+                                    if "," in text or "，" in text or any(sk.lower() in text.lower() for sk in current_skills[:3]):
+                                        para.clear()
+                                        para.add_run(skills_text)
+                                        updated = True
+                                        break
+                                
+                                # 如果遇到新的标题，重置
+                                if text.startswith('#') or (len(text) < 20 and text.isupper()):
+                                    skill_section_found = False
+                            
+                            # 如果没找到，在末尾添加
+                            if not updated:
+                                doc.add_paragraph()
+                                doc.add_heading('技能', level=1)
+                                doc.add_paragraph(skills_text)
+                            
+                            # 保存到临时文件
+                            import tempfile
+                            with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
+                                doc.save(tmp.name)
+                                with open(tmp.name, 'rb') as f:
+                                    docx_data = f.read()
+                                os.unlink(tmp.name)
+                            
+                            st.download_button(
+                                label="📥 下载更新后的简历 (DOCX)",
+                                data=docx_data,
+                                file_name=f"{Path(original_filename).stem}_updated.docx",
+                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            )
+                        else:
+                            st.warning("原始文件不存在")
+                    
+                    elif file_ext == ".pdf":
+                        # PDF 无法直接修改，生成 DOCX 版本
+                        from docx import Document as DocxDocument
+                        
+                        # 读取 PDF 文本内容
+                        file_path = user_data_manager.get_resume_file_path(user_id, original_filename)
+                        pdf_text = ""
+                        if file_path and file_path.exists():
+                            try:
+                                import fitz  # PyMuPDF
+                                pdf_doc = fitz.open(str(file_path))
+                                for page in pdf_doc:
+                                    pdf_text += page.get_text()
+                                pdf_doc.close()
+                            except:
+                                pdf_text = ""
+                        
+                        # 生成 DOCX（包含原始内容 + 更新后的技能）
+                        doc = DocxDocument()
+                        doc.add_heading('个人简历', 0)
+                        
+                        # 解析并添加原始内容
+                        if pdf_text:
+                            lines = pdf_text.split('\n')
+                            for line in lines:
+                                line = line.strip()
+                                if not line:
+                                    continue
+                                # 检测标题
+                                if len(line) < 20 and (line.isupper() or line.endswith('：') or line.endswith(':')):
+                                    doc.add_heading(line, level=1)
+                                else:
+                                    doc.add_paragraph(line)
+                        
+                        # 更新技能部分
+                        doc.add_heading('技能列表（已更新）', level=1)
+                        doc.add_paragraph(', '.join(current_skills))
+                        
+                        import tempfile
+                        with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
+                            doc.save(tmp.name)
+                            with open(tmp.name, 'rb') as f:
+                                docx_data = f.read()
+                            os.unlink(tmp.name)
+                        
+                        st.download_button(
+                            label="📥 下载更新后的简历 (DOCX)",
+                            data=docx_data,
+                            file_name=f"{Path(original_filename).stem}_updated.docx",
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        )
+                    
+                    else:
+                        # 其他格式生成 DOCX
+                        from docx import Document as DocxDocument
+                        doc = DocxDocument()
+                        doc.add_heading('个人简历', 0)
+                        doc.add_heading('基本信息', level=1)
+                        doc.add_paragraph(f'当前职位：{current_profile.get("current_title", "未设置")}')
+                        doc.add_paragraph(f'工作年限：{current_profile.get("experience_years", 0)} 年')
+                        doc.add_paragraph(f'最高学历：{current_profile.get("education", "未设置")}')
+                        doc.add_heading('技能列表', level=1)
+                        doc.add_paragraph(', '.join(current_skills))
+                        
+                        import tempfile
+                        with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
+                            doc.save(tmp.name)
+                            with open(tmp.name, 'rb') as f:
+                                docx_data = f.read()
+                            os.unlink(tmp.name)
+                        
+                        st.download_button(
+                            label="📥 下载更新后的简历 (DOCX)",
+                            data=docx_data,
+                            file_name=f"{Path(original_filename).stem}_updated.docx",
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        )
+                except Exception as e:
+                    st.warning(f"文件生成失败: {e}")
             
             with col3:
                 # 预览简历
                 if st.button("👁️ 预览简历", key="preview_resume_btn"):
                     st.session_state["show_resume_preview"] = not st.session_state.get("show_resume_preview", False)
             
-            # 显示预览（直接读取文件，不解析）
+            # 显示预览（显示更新后的内容）
             if st.session_state.get("show_resume_preview"):
+                # 获取当前简历数据（可能已更新）
+                current_profile = st.session_state.get("resume_profile", saved_profile or {})
+                current_skills = current_profile.get("skills", [])
+                
+                # 显示更新后的简历内容
+                st.subheader("📝 更新后的简历内容")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write(f"**当前职位**: {current_profile.get('current_title', '未识别')}")
+                    st.write(f"**工作年限**: {current_profile.get('experience_years', 0)} 年")
+                    st.write(f"**最高学历**: {current_profile.get('education', '未识别')}")
+                
+                with col2:
+                    if current_skills:
+                        st.write(f"**技能** ({len(current_skills)} 项):")
+                        skills_text = " ".join([f"`{s}`" for s in current_skills[:15]])
+                        st.markdown(skills_text)
+                        if len(current_skills) > 15:
+                            st.caption(f"...还有 {len(current_skills) - 15} 项技能")
+                    else:
+                        st.write("**技能**: 未识别")
+                
+                # 证书
+                certifications = current_profile.get("certifications", [])
+                if certifications:
+                    st.write(f"**证书**: {', '.join(certifications)}")
+                
+                st.divider()
+                
+                # 提供下载更新后的简历
+                resume_text = f"""个人简历
+========
+
+基本信息
+--------
+当前职位：{current_profile.get('current_title', '未设置')}
+工作年限：{current_profile.get('experience_years', 0)} 年
+最高学历：{current_profile.get('education', '未设置')}
+
+技能列表
+--------
+{', '.join(current_skills)}
+
+更新时间：{current_profile.get('saved_at', datetime.now().strftime("%Y-%m-%d %H:%M:%S"))}
+"""
+                
+                st.download_button(
+                    label="📥 下载更新后的简历",
+                    data=resume_text,
+                    file_name="resume_updated.txt",
+                    mime="text/plain",
+                )
+                
+                # 原始文件下载
                 file_path = user_data_manager.get_resume_file_path(user_id, original_filename)
                 if file_path and file_path.exists():
-                    file_ext = Path(original_filename).suffix.lower()
-                    
-                    if file_ext == ".pdf":
-                        # PDF 预览
-                        with open(file_path, "rb") as f:
-                            pdf_data = f.read()
-                        st.download_button(
-                            label="📥 打开/下载 PDF",
-                            data=pdf_data,
-                            file_name=original_filename,
-                            mime="application/pdf",
-                        )
-                    elif file_ext == ".docx":
-                        # DOCX 预览：显示文本内容
-                        try:
-                            from docx import Document as DocxDocument
-                            doc = DocxDocument(str(file_path))
-                            text_content = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
-                            st.text_area(
-                                "简历内容预览",
-                                value=text_content,
-                                height=300,
-                                disabled=True,
-                            )
-                        except Exception as e:
-                            st.error(f"DOCX 预览失败: {e}")
-                    else:
-                        st.info(f"文件格式 {file_ext} 暂不支持预览，请下载查看")
-                else:
-                    st.warning("简历文件不存在，请重新上传")
+                    with open(file_path, "rb") as f:
+                        original_data = f.read()
+                    st.download_button(
+                        label=f"📥 下载原始文件 ({original_filename})",
+                        data=original_data,
+                        file_name=original_filename,
+                        mime="application/octet-stream",
+                    )
             
             st.divider()
         
@@ -633,20 +804,19 @@ elif page == "📄 简历管理":
                 # 有可选技能，让用户选择
                 st.write("选择要添加到简历的热门技能：")
                 
-                # 初始化默认选中状态（只在首次渲染时）
+                # 初始化默认选中状态（只在首次）
                 for i, skill in enumerate(hot_skills_filtered[:9]):
-                    state_key = f"skill_{skill}"
-                    if state_key not in st.session_state:
-                        st.session_state[state_key] = (i < 3)
+                    key = f"skill_{skill}"
+                    if key not in st.session_state:
+                        st.session_state[key] = (i < 3)
                 
-                # 用户勾选技能
+                # 用户勾选技能（不用 columns，避免状态问题）
                 selected_skills = []
-                cols = st.columns(3)
-                for i, skill in enumerate(hot_skills_filtered[:9]):
-                    with cols[i % 3]:
-                        if st.checkbox(skill, key=f"skill_{skill}"):
-                            selected_skills.append(skill)
+                for skill in hot_skills_filtered[:9]:
+                    if st.checkbox(skill, key=f"skill_{skill}"):
+                        selected_skills.append(skill)
                 
+                # 实时显示预览
                 if selected_skills:
                     suggested = list(user_skills) + selected_skills
                     st.info(f"添加后技能：`{'`, `'.join(suggested[:15])}`")
@@ -659,23 +829,39 @@ elif page == "📄 简历管理":
                         
                         saved_profile = user_data_manager.load_resume_profile(user_id) or {}
                         
+                        # 构建更新后的简历数据（保留原始内容，更新技能）
+                        updated_resume = {
+                            **saved_profile,
+                            "skills": suggested,
+                            "current_title": user_profile_data.get("current_title", saved_profile.get("current_title", "")),
+                            "experience_years": user_profile_data.get("experience_years", saved_profile.get("experience_years", 0)),
+                            "education": user_profile_data.get("education", saved_profile.get("education")),
+                            "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        }
+                        
+                        # 保存到文件
+                        user_data_manager.save_resume_profile(user_id, updated_resume)
+                        
+                        # 同时更新 session_state（用于预览和下载）
+                        st.session_state["resume_profile"] = updated_resume
+                        
+                        # 更新 UserProfile
                         user = UserProfile(
                             id=user_id,
-                            current_title=user_profile_data.get("current_title", saved_profile.get("current_title", "")),
-                            experience_years=user_profile_data.get("experience_years", saved_profile.get("experience_years", 0)),
-                            education=user_profile_data.get("education", saved_profile.get("education")),
+                            current_title=updated_resume.get("current_title", ""),
+                            experience_years=updated_resume.get("experience_years", 0),
+                            education=updated_resume.get("education"),
                             skills=suggested,
                             source="resume",
                             device_id=user_manager.device_id,
                         )
                         job_manager.create_user_profile(user)
                         
-                        updated_data = {**saved_profile, "skills": suggested, "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-                        user_data_manager.save_resume_profile(user_id, updated_data)
-                        
                         st.success("✅ 简历已更新！请重新匹配")
                         st.session_state["show_optimization"] = False
                         st.rerun()
+                else:
+                    st.warning("请至少选择一项技能")
             
             st.divider()
             st.write("**💡 其他建议：**")
@@ -702,18 +888,17 @@ elif page == "📄 简历管理":
                 
                 # 初始化默认选中状态
                 for i, skill in enumerate(sorted(missing_skills)[:9]):
-                    state_key = f"match_skill_{skill}"
-                    if state_key not in st.session_state:
-                        st.session_state[state_key] = (i < 3)
+                    key = f"match_skill_{skill}"
+                    if key not in st.session_state:
+                        st.session_state[key] = (i < 3)
                 
                 # 用户勾选技能
                 selected_skills = []
-                cols = st.columns(3)
-                for i, skill in enumerate(sorted(missing_skills)[:9]):
-                    with cols[i % 3]:
-                        if st.checkbox(skill, key=f"match_skill_{skill}"):
-                            selected_skills.append(skill)
+                for skill in sorted(missing_skills)[:9]:
+                    if st.checkbox(skill, key=f"match_skill_{skill}"):
+                        selected_skills.append(skill)
                 
+                # 实时显示预览
                 if selected_skills:
                     current_skills = list(user_skills)
                     suggested_skills = current_skills + selected_skills
@@ -727,25 +912,39 @@ elif page == "📄 简历管理":
                         
                         saved_profile = user_data_manager.load_resume_profile(user_id) or {}
                         
+                        # 构建更新后的简历数据（保留原始内容，更新技能）
+                        updated_resume = {
+                            **saved_profile,
+                            "skills": suggested_skills,
+                            "current_title": user_profile_data.get("current_title", saved_profile.get("current_title", "")),
+                            "experience_years": user_profile_data.get("experience_years", saved_profile.get("experience_years", 0)),
+                            "education": user_profile_data.get("education", saved_profile.get("education")),
+                            "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        }
+                        
+                        # 保存到文件
+                        user_data_manager.save_resume_profile(user_id, updated_resume)
+                        
+                        # 同时更新 session_state
+                        st.session_state["resume_profile"] = updated_resume
+                        
+                        # 更新 UserProfile
                         user = UserProfile(
                             id=user_id,
-                            current_title=user_profile_data.get("current_title", saved_profile.get("current_title", "")),
-                            experience_years=user_profile_data.get("experience_years", saved_profile.get("experience_years", 0)),
-                            education=user_profile_data.get("education", saved_profile.get("education")),
+                            current_title=updated_resume.get("current_title", ""),
+                            experience_years=updated_resume.get("experience_years", 0),
+                            education=updated_resume.get("education"),
                             skills=suggested_skills,
                             source="resume",
                             device_id=user_manager.device_id,
                         )
                         job_manager.create_user_profile(user)
                         
-                        updated_data = {**saved_profile, "skills": suggested_skills, "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-                        user_data_manager.save_resume_profile(user_id, updated_data)
-                        
                         st.success("✅ 简历已更新！请重新匹配")
                         st.session_state["show_optimization"] = False
                         st.rerun()
-            else:
-                st.success("✅ 您的技能与职位匹配良好！")
+                else:
+                    st.warning("请至少选择一项技能")
     
     # 显示更新后的简历（格式与更新前一致）
     if st.session_state.get("show_updated_resume"):
