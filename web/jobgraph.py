@@ -241,10 +241,10 @@ elif page == "📄 简历管理":
         st.success(f"✅ 已选择文件: {uploaded_file.name}")
         
         # 保存原始简历文件
-        file_data = uploaded_file.getbuffer()
+        file_data = uploaded_file.getvalue()
         file_path = user_data_manager.save_resume_file(user_id, file_data, uploaded_file.name)
         if file_path:
-            st.caption(f"📁 原始文件已保存: {uploaded_file.name}")
+            st.caption(f"📁 原始文件已保存: {uploaded_file.name} ({len(file_data)} bytes)")
         
         # 解析简历
         with st.spinner("正在解析简历..."):
@@ -321,25 +321,27 @@ elif page == "📄 简历管理":
             
             with col3:
                 # 预览简历（显示文本内容）
-                if st.button("👁️ 预览简历"):
-                    try:
-                        # 重新解析简历获取文本
-                        file_path = user_data_manager.get_resume_file_path(user_id, original_filename)
-                        if file_path:
-                            text = resume_parser.parse(str(file_path))
-                            st.session_state["resume_preview_text"] = text
-                    except Exception as e:
-                        st.error(f"预览失败: {e}")
+                if st.button("👁️ 预览简历", key="preview_resume_btn"):
+                    st.session_state["show_resume_preview"] = True
             
             # 显示预览文本
-            if "resume_preview_text" in st.session_state:
-                with st.expander("📝 简历文本预览", expanded=True):
-                    st.text_area(
-                        "简历内容",
-                        value=st.session_state["resume_preview_text"],
-                        height=300,
-                        disabled=True,
-                    )
+            if st.session_state.get("show_resume_preview"):
+                try:
+                    file_path = user_data_manager.get_resume_file_path(user_id, original_filename)
+                    if file_path and file_path.exists():
+                        # 解析文件获取文本
+                        text = resume_parser.parse(str(file_path))
+                        with st.expander("📝 简历文本预览", expanded=True):
+                            st.text_area(
+                                "简历内容",
+                                value=text,
+                                height=300,
+                                disabled=True,
+                            )
+                    else:
+                        st.warning("简历文件不存在，请重新上传")
+                except Exception as e:
+                    st.error(f"预览失败: {e}")
             
             st.divider()
         
