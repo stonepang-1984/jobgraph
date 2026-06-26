@@ -667,34 +667,6 @@ elif page == "📄 简历管理":
                 st.write("您的技能已涵盖当前热门技能")
                 st.write("建议放宽筛选条件或查看其他职位")
             
-            if st.button("✅ 自动更新简历", type="primary", key="auto_update_empty"):
-                        import hashlib
-                        user_id = hashlib.md5(
-                            f"{user_manager.device_id}_resume".encode()
-                        ).hexdigest()[:16]
-                        
-                        # 获取当前简历信息
-                        saved_profile = user_data_manager.load_resume_profile(user_id) or {}
-                        
-                        user = UserProfile(
-                            id=user_id,
-                            current_title=user_profile_data.get("current_title", saved_profile.get("current_title", "")),
-                            experience_years=user_profile_data.get("experience_years", saved_profile.get("experience_years", 0)),
-                            education=user_profile_data.get("education", saved_profile.get("education")),
-                            skills=suggested,
-                            source="resume",
-                            device_id=user_manager.device_id,
-                        )
-                        job_manager.create_user_profile(user)
-                        
-                        # 保存更新后的简历
-                        updated_data = {**saved_profile, "skills": suggested, "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-                        user_data_manager.save_resume_profile(user_id, updated_data)
-                        
-                        st.success("✅ 简历已更新！请重新匹配")
-                        st.session_state["show_optimization"] = False
-                        st.rerun()
-            
             st.divider()
             st.write("**💡 其他建议：**")
             st.markdown("""
