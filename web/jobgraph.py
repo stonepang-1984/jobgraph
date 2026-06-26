@@ -560,6 +560,15 @@ elif page == "📄 简历管理":
         user_profile_data = st.session_state.get("user_profile_data", {})
         match_result = st.session_state.get("match_result")
         
+        # 确保 user_skills 包含用户的实际技能
+        user_skills = set(user_profile_data.get("skills", []))
+        if not user_skills:
+            # 从保存的简历加载技能
+            saved = user_data_manager.load_resume_profile(user_id)
+            if saved:
+                user_skills = set(saved.get("skills", []))
+                user_profile_data["skills"] = list(user_skills)
+        
         # 检查是否有匹配结果
         has_matches = match_result and match_result.matches and len(match_result.matches) > 0
         
@@ -570,7 +579,6 @@ elif page == "📄 简历管理":
             # 分析可能的原因
             st.write("**可能原因分析：**")
             
-            user_skills = set(user_profile_data.get("skills", []))
             user_locations = st.session_state.get("user_profile_data", {}).get("desired_locations", [])
             
             # 查询数据库中的热门技能
@@ -583,20 +591,23 @@ elif page == "📄 简历管理":
                     UNWIND j.skills AS skill
                     RETURN skill, count(*) AS cnt
                     ORDER BY cnt DESC
-                    LIMIT 20
+                    LIMIT 30
                 ''')
-                hot_skills = [r["skill"] for r in result]
+                all_hot_skills = [r["skill"] for r in result]
                 
                 # 计算技能重叠
-                overlap = user_skills & set(hot_skills)
+                overlap = user_skills & set(all_hot_skills)
                 
                 if not overlap:
                     st.write("1. ❌ **技能不匹配**：您的技能与当前职位需求不匹配")
-                    st.write(f"   热门技能: {', '.join(hot_skills[:10])}")
+                    st.write(f"   热门技能: {', '.join(all_hot_skills[:10])}")
                 else:
                     st.write(f"1. ✅ 技能匹配: {', '.join(overlap)}")
-            except:
-                pass
+                
+                # 过滤掉用户已有的技能
+                hot_skills = [s for s in all_hot_skills if s not in user_skills]
+            except Exception as e:
+                logger.error(f"查询热门技能失败: {e}")
             
             if user_locations:
                 st.write(f"2. 📍 地点限制: {', '.join(user_locations)}")
@@ -604,18 +615,59 @@ elif page == "📄 简历管理":
             
             st.divider()
             
-            # 自动更新简历建议
-            if hot_skills:
-                st.write("**🔧 自动更新简历：**")
-                st.write("将以下热门技能添加到您的简历中：")
+            # 自动更新简历建议（用户选择添加哪些技能）
+            st.write("**🔧 自动更新简历：**")
+            
+            # 获取推荐技能（排除用户已有的）
+            missing_hot_skills = [s for s in hot_skills[:10] if s not in user_skills]
+            
+            if missing_hot_skills:
+                st.write("选择要添加到简历的热门技能：")
                 
-                # 推荐用户缺少的热门技能
-                missing_hot_skills = [s for s in hot_skills[:10] if s not in user_skills]
-                if missing_hot_skills:
-                    suggested = list(user_skills) + missing_hot_skills[:5]
-                    st.markdown(f"```\n{', '.join(suggested)}\n```")
+                # 用户勾选技能
+                selected_skills = []
+                cols = st.columns(3)
+                for i, skill in enumerate(missing_hot_skills[:9]):
+                    with cols[i % 3]:
+                        if st.checkbox(skill, key=f"skill_{skill}", value=(i < 3)):
+                            selected_skills.append(skill)
+                
+                if selected_skills:
+                    suggested = list(user_skills) + selected_skills
+                    st.info(f"添加后技能：`{'`, `'.join(suggested[:15])}`")
                     
-                    if st.button("✅ 自动更新简历", type="primary", key="auto_update_empty"):
+                    if st.button("✅ 更新简历", type="primary", key="auto_update_empty"):
+                        import hashlib
+                        user_id = hashlib.md5(
+                            f"{user_manager.device_id}_resume".encode()
+                        ).hexdigest()[:16]
+                        
+                        saved_profile = user_data_manager.load_resume_profile(user_id) or {}
+                        
+                        user = UserProfile(
+                            id=user_id,
+                            current_title=user_profile_data.get("current_title", saved_profile.get("current_title", "")),
+                            experience_years=user_profile_data.get("experience_years", saved_profile.get("experience_years", 0)),
+                            education=user_profile_data.get("education", saved_profile.get("education")),
+                            skills=suggested,
+                            source="resume",
+                            device_id=user_manager.device_id,
+                        )
+                        job_manager.create_user_profile(user)
+                        
+                        updated_data = {**saved_profile, "skills": suggested, "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+                        user_data_manager.save_resume_profile(user_id, updated_data)
+                        
+                        st.success("✅ 简历已更新！请重新匹配")
+                        st.session_state["show_optimization"] = False
+                        st.rerun()
+                else:
+                    st.warning("请至少选择一项技能")
+            else:
+                st.write("您的技能已涵盖当前热门技能")
+                st.write("建议放宽筛选条件或查看其他职位")
+            
+            if st.button("✅ 自动更新简历", type="primary", key="auto_update_empty"):
                         import hashlib
                         user_id = hashlib.md5(
                             f"{user_manager.device_id}_resume".encode()
@@ -656,73 +708,48 @@ elif page == "📄 简历管理":
             for job in match_result.matches[:3]:
                 all_job_skills.update(job.get("skills", []))
             
-            user_skills = set(user_profile_data.get("skills", []))
-            missing_skills = all_job_skills - user_skills
+            missing_skills = [s for s in all_job_skills if s not in user_skills]
             
             if missing_skills:
-                st.warning(f"⚡ **技能差距**：您缺少以下技能，建议补充：")
+                st.warning(f"⚡ **技能差距**：匹配职位需要以下技能，您可以选择添加：")
                 
-                missing_skills_text = ", ".join([f"`{s}`" for s in sorted(missing_skills)])
-                st.markdown(missing_skills_text)
+                # 用户勾选技能
+                selected_skills = []
+                cols = st.columns(3)
+                for i, skill in enumerate(sorted(missing_skills)[:9]):
+                    with cols[i % 3]:
+                        if st.checkbox(skill, key=f"match_skill_{skill}", value=(i < 3)):
+                            selected_skills.append(skill)
                 
-                current_skills = user_profile_data.get("skills", [])
-                suggested_skills = current_skills + sorted(missing_skills)[:5]
-                
-                st.info(f"💡 **建议**：在简历技能部分添加以下技能：")
-                st.markdown(f"```\n{', '.join(suggested_skills)}\n```")
-                
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    if st.button("✅ 接受建议，更新简历", type="primary"):
+                if selected_skills:
+                    current_skills = user_profile_data.get("skills", [])
+                    suggested_skills = current_skills + selected_skills
+                    
+                    st.info(f"添加后技能：`{'`, `'.join(suggested_skills[:15])}`")
+                    
+                    if st.button("✅ 更新简历", type="primary", key="update_from_match"):
                         import hashlib
                         user_id = hashlib.md5(
                             f"{user_manager.device_id}_resume".encode()
                         ).hexdigest()[:16]
                         
+                        saved_profile = user_data_manager.load_resume_profile(user_id) or {}
+                        
                         user = UserProfile(
                             id=user_id,
-                            current_title=user_profile_data.get("current_title", ""),
-                            experience_years=user_profile_data.get("experience_years", 0),
-                            education=user_profile_data.get("education"),
+                            current_title=user_profile_data.get("current_title", saved_profile.get("current_title", "")),
+                            experience_years=user_profile_data.get("experience_years", saved_profile.get("experience_years", 0)),
+                            education=user_profile_data.get("education", saved_profile.get("education")),
                             skills=suggested_skills,
                             source="resume",
                             device_id=user_manager.device_id,
                         )
                         job_manager.create_user_profile(user)
                         
-                        # 保存更新后的简历信息（保留原始内容，只更新技能）
-                        saved_profile = user_data_manager.load_resume_profile(user_id) or {}
+                        updated_data = {**saved_profile, "skills": suggested_skills, "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+                        user_data_manager.save_resume_profile(user_id, updated_data)
                         
-                        # 构建更新后的简历数据（保留原始内容）
-                        updated_resume_data = {
-                            "current_title": user_profile_data.get("current_title", saved_profile.get("current_title", "")),
-                            "experience_years": user_profile_data.get("experience_years", saved_profile.get("experience_years", 0)),
-                            "education": user_profile_data.get("education", saved_profile.get("education")),
-                            "skills": suggested_skills,  # 更新技能
-                            "certifications": user_profile_data.get("certifications", saved_profile.get("certifications", [])),
-                            "work_history": saved_profile.get("work_history", []),  # 保留原始工作经历
-                            "projects": saved_profile.get("projects", []),  # 保留原始项目经验
-                            "original_filename": saved_profile.get("original_filename", "resume"),
-                            "file_format": saved_profile.get("file_format", ".txt"),
-                            "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        }
-                        
-                        # 保存到文件
-                        user_data_manager.save_resume_profile(user_id, updated_resume_data)
-                        
-                        # 保存到 session_state 用于预览
-                        st.session_state["updated_resume"] = {
-                            **updated_resume_data,
-                            "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        }
-                        
-                        st.success("✅ 简历已更新！正在重新匹配...")
-                        st.session_state["show_optimization"] = False
-                        st.session_state["show_updated_resume"] = True
-                        st.rerun()
-                
-                with col2:
-                    if st.button("❌ 保持原样"):
+                        st.success("✅ 简历已更新！请重新匹配")
                         st.session_state["show_optimization"] = False
                         st.rerun()
             else:
