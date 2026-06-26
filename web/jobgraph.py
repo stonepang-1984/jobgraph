@@ -615,17 +615,26 @@ elif page == "📄 简历管理":
             
             st.divider()
             
-            # 自动更新简历建议（用户选择添加哪些技能）
+            # 自动更新简历建议
             st.write("**🔧 自动更新简历：**")
             
             # 获取推荐技能（排除用户已有的）
-            missing_hot_skills = [s for s in hot_skills[:10] if s not in user_skills]
+            hot_skills_filtered = [s for s in hot_skills[:10] if s not in user_skills] if hot_skills else []
             
-            if missing_hot_skills:
+            # 显示状态信息
+            if not hot_skills:
+                st.warning("⚠️ 数据库中暂无职位数据，请先同步数据或添加职位")
+            elif not user_skills:
+                st.info("💡 未获取到您的技能信息，请先在「简历管理」页面上传简历")
+            elif not hot_skills_filtered:
+                st.success("✅ 您的技能已涵盖当前热门技能！")
+                st.write("建议放宽筛选条件或查看其他职位")
+            else:
+                # 有可选技能，让用户选择
                 st.write("选择要添加到简历的热门技能：")
                 
                 # 初始化默认选中状态（只在首次渲染时）
-                for i, skill in enumerate(missing_hot_skills[:9]):
+                for i, skill in enumerate(hot_skills_filtered[:9]):
                     state_key = f"skill_{skill}"
                     if state_key not in st.session_state:
                         st.session_state[state_key] = (i < 3)
@@ -633,7 +642,7 @@ elif page == "📄 简历管理":
                 # 用户勾选技能
                 selected_skills = []
                 cols = st.columns(3)
-                for i, skill in enumerate(missing_hot_skills[:9]):
+                for i, skill in enumerate(hot_skills_filtered[:9]):
                     with cols[i % 3]:
                         if st.checkbox(skill, key=f"skill_{skill}"):
                             selected_skills.append(skill)
@@ -667,11 +676,6 @@ elif page == "📄 简历管理":
                         st.success("✅ 简历已更新！请重新匹配")
                         st.session_state["show_optimization"] = False
                         st.rerun()
-                else:
-                    st.warning("请至少选择一项技能")
-            else:
-                st.write("您的技能已涵盖当前热门技能")
-                st.write("建议放宽筛选条件或查看其他职位")
             
             st.divider()
             st.write("**💡 其他建议：**")
@@ -680,6 +684,11 @@ elif page == "📄 简历管理":
             2. **手动输入职位信息**：使用「智能匹配」页面手动输入
             3. **查看所有职位**：在「岗位搜索」页面浏览所有职位
             """)
+            
+            if st.button("📝 手动输入职位信息", key="manual_from_empty"):
+                st.session_state["page"] = "🎯 智能匹配"
+                st.session_state["show_optimization"] = False
+                st.rerun()
         else:
             # 有匹配结果，分析技能差距
             all_job_skills = set()
@@ -706,9 +715,8 @@ elif page == "📄 简历管理":
                             selected_skills.append(skill)
                 
                 if selected_skills:
-                    current_skills = user_profile_data.get("skills", [])
+                    current_skills = list(user_skills)
                     suggested_skills = current_skills + selected_skills
-                    
                     st.info(f"添加后技能：`{'`, `'.join(suggested_skills[:15])}`")
                     
                     if st.button("✅ 更新简历", type="primary", key="update_from_match"):
