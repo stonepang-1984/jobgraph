@@ -320,28 +320,44 @@ elif page == "📄 简历管理":
                     )
             
             with col3:
-                # 预览简历（显示文本内容）
+                # 预览简历
                 if st.button("👁️ 预览简历", key="preview_resume_btn"):
-                    st.session_state["show_resume_preview"] = True
+                    st.session_state["show_resume_preview"] = not st.session_state.get("show_resume_preview", False)
             
-            # 显示预览文本
+            # 显示预览（直接读取文件，不解析）
             if st.session_state.get("show_resume_preview"):
-                try:
-                    file_path = user_data_manager.get_resume_file_path(user_id, original_filename)
-                    if file_path and file_path.exists():
-                        # 解析文件获取文本
-                        text = resume_parser.parse(str(file_path))
-                        with st.expander("📝 简历文本预览", expanded=True):
+                file_path = user_data_manager.get_resume_file_path(user_id, original_filename)
+                if file_path and file_path.exists():
+                    file_ext = Path(original_filename).suffix.lower()
+                    
+                    if file_ext == ".pdf":
+                        # PDF 预览
+                        with open(file_path, "rb") as f:
+                            pdf_data = f.read()
+                        st.download_button(
+                            label="📥 打开/下载 PDF",
+                            data=pdf_data,
+                            file_name=original_filename,
+                            mime="application/pdf",
+                        )
+                    elif file_ext == ".docx":
+                        # DOCX 预览：显示文本内容
+                        try:
+                            from docx import Document as DocxDocument
+                            doc = DocxDocument(str(file_path))
+                            text_content = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
                             st.text_area(
-                                "简历内容",
-                                value=text,
+                                "简历内容预览",
+                                value=text_content,
                                 height=300,
                                 disabled=True,
                             )
+                        except Exception as e:
+                            st.error(f"DOCX 预览失败: {e}")
                     else:
-                        st.warning("简历文件不存在，请重新上传")
-                except Exception as e:
-                    st.error(f"预览失败: {e}")
+                        st.info(f"文件格式 {file_ext} 暂不支持预览，请下载查看")
+                else:
+                    st.warning("简历文件不存在，请重新上传")
             
             st.divider()
         
