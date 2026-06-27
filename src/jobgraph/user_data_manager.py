@@ -18,7 +18,7 @@ class UserDataManager:
     def __init__(self, data_dir: str = "./data/user"):
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # 简历文件存储目录
         self.files_dir = self.data_dir / "files"
         self.files_dir.mkdir(parents=True, exist_ok=True)
@@ -47,10 +47,10 @@ class UserDataManager:
         try:
             user_files = self._get_user_files_dir(user_id)
             file_path = user_files / filename
-            
+
             with open(file_path, "wb") as f:
                 f.write(file_data)
-            
+
             logger.info(f"简历文件已保存: {file_path}")
             return str(file_path)
         except Exception as e:
@@ -70,10 +70,10 @@ class UserDataManager:
         try:
             user_files = self._get_user_files_dir(user_id)
             file_path = user_files / filename
-            
+
             if not file_path.exists():
                 return None
-            
+
             with open(file_path, "rb") as f:
                 return f.read()
         except Exception as e:
@@ -107,7 +107,7 @@ class UserDataManager:
         try:
             user_files = self._get_user_files_dir(user_id)
             file_path = user_files / filename
-            
+
             if file_path.exists():
                 file_path.unlink()
                 logger.info(f"简历文件已删除: {file_path}")
