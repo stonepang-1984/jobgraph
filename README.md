@@ -113,29 +113,25 @@ make deploy
 
 ### 导入更多数据 (可选)
 
+从数据中心获取最新数据：
+
 ```bash
-# 从 admin 仓库导入数据（推荐）
-# 1. 先在 admin 仓库导出数据
-cd ../jobgraph-admin
-PYTHONPATH=. python3 scripts/export_data.py
+# 方式一：离线数据包（从管理员获取）
+# 1. 从管理员获取 data_package.json 文件
+# 2. 导入数据
+PYTHONPATH=. python3 scripts/import_from_admin.py --file data_package.json
 
-# 2. 在 jobgraph 仓库导入数据
-cd ../jobgraph
-PYTHONPATH=. python3 scripts/import_from_admin.py --file ../jobgraph-admin/data/export/admin_data_YYYYMMDD.json
-
-# 或从离线数据包导入
-make sync-package FILE=data_package.zip
-
-# 或从数据中心同步 (需要 Tailscale)
-make sync-tailscale SERVER=http://数据中心地址:8000
+# 方式二：在线同步（需要数据中心地址）
+# 在 Web 界面「用户中心 → 数据同步」页面配置数据中心地址
+# 支持自动同步和手动同步
 ```
 
-**数据同步脚本说明**：
+**数据同步说明**：
 
-| 脚本 | 仓库 | 说明 |
-|------|------|------|
-| `scripts/export_data.py` | admin | 从 Neo4j 导出数据 |
-| `scripts/import_from_admin.py` | jobgraph | 导入 admin 数据到 Neo4j |
+| 方式 | 说明 | 适用场景 |
+|------|------|----------|
+| 离线数据包 | 从管理员获取 JSON 文件 | 无网络环境 |
+| 在线同步 | 配置数据中心地址 | 有网络环境 |
 
 ## 💡 使用场景
 
@@ -270,8 +266,8 @@ make jobgraph         # 启动求职图谱 (8504)
 ### Q: 数据从哪里来？
 
 A: 应用内置了示例数据（63家公司、15个职位、8条评价），开箱即用。你也可以：
-- 从 jobgraph-admin 数据中心同步最新数据（推荐）
-- 自己导入数据
+- 从管理员获取数据包导入（推荐）
+- 配置数据中心地址在线同步
 
 ### Q: 必须连接数据中心吗？
 
@@ -303,8 +299,8 @@ A: 支持 Windows、macOS、Linux。需要 Python 3.10+ 环境。
 
 A: 三种方式（可选）：
 1. 使用内置示例数据（默认）
-2. 从离线数据包导入
-3. 从数据中心同步
+2. 从管理员获取离线数据包导入
+3. 配置数据中心地址在线同步
 
 ## 📄 许可证
 
