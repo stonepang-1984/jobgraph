@@ -56,7 +56,6 @@ pages = [
     "🎯 智能匹配",
     "🔍 岗位搜索",
     "🔔 订阅提醒",
-    "🏢 公司画像",
     "⚠️ 避坑指南",
     "📊 薪资行情",
     "✏️ 贡献数据",
@@ -1249,10 +1248,11 @@ elif page == "🔍 岗位搜索":
 # Company Profile
 # ============================================================
 
-elif page == "🏢 公司画像":
-    st.header("🏢 公司画像")
+elif page == "⚠️ 避坑指南":
+    st.header("⚠️ 公司画像 & 避坑指南")
     
-    company_query = st.text_input("搜索公司", placeholder="输入公司名称")
+    # 搜索公司
+    company_query = st.text_input("🔍 搜索公司", placeholder="输入公司名称查看画像和避坑信息")
     
     if company_query:
         companies = job_manager.search_companies(company_query)
@@ -1265,33 +1265,30 @@ elif page == "🏢 公司画像":
                 
                 st.subheader(f"{risk_icon} {c.get('name', '')}")
                 
+                # 公司画像
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
                     st.write(f"**行业**: {c.get('industry', '')}")
                     st.write(f"**规模**: {c.get('size', '')}")
-                    st.write(f"**成立**: {c.get('founded', '')}")
                     st.write(f"**总部**: {c.get('headquarters', '')}")
                 
                 with col2:
-                    st.write(f"**融资**: {c.get('funding_stage', '')}")
-                    st.write(f"**上市**: {'是' if c.get('is_listed') else '否'}")
                     st.write(f"**平均薪资**: ¥{c.get('avg_salary', 0):,.0f}/月")
                     st.write(f"**评分**: {'⭐' * int(c.get('avg_rating', 0))} ({c.get('avg_rating', 0):.1f})")
                 
                 with col3:
                     st.markdown(f"**风险等级**: {risk.upper()}")
                     st.write(f"**风险分数**: {c.get('risk_score', 0):.2f}")
-                    
                     tags = c.get("tags", [])
                     if tags:
                         st.write(f"**标签**: {', '.join(tags)}")
                 
-                # Reviews
+                # 员工评价
                 reviews = job_manager.get_company_reviews(c.get("id", ""))
                 if reviews:
                     st.subheader("💬 员工评价")
-                    for rev in reviews[:5]:
+                    for rev in reviews[:3]:
                         r = rev.get("r", {})
                         st.write(f"**{r.get('title', '')}** - {r.get('reviewer_title', '')}")
                         col1, col2 = st.columns(2)
@@ -1300,7 +1297,7 @@ elif page == "🏢 公司画像":
                         with col2:
                             st.error(f"❌ {r.get('cons', '')}")
                 
-                # Pitfalls
+                # 坑点预警
                 pitfalls = job_manager.get_company_pitfalls(c.get("id", ""))
                 if pitfalls:
                     st.subheader("⚠️ 坑点预警")
@@ -1312,62 +1309,36 @@ elif page == "🏢 公司画像":
                 st.divider()
         else:
             st.info("未找到匹配的公司")
-
-
-# ============================================================
-# Pitfall Guide
-# ============================================================
-
-elif page == "⚠️ 避坑指南":
-    st.header("⚠️ 避坑指南")
     
-    st.subheader("常见坑点类型")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.error("### 💰 欠薪\n拖欠工资，不按时发放")
-    
-    with col2:
-        st.error("### 🎭 PUA\n精神控制，贬低员工")
-    
-    with col3:
-        st.error("### ⏰ 996\n强制加班，没有加班费")
-    
-    with col4:
-        st.error("### 📉 裁员\n频繁裁员，不稳定")
-    
-    st.divider()
-    
-    st.subheader("避坑技巧")
-    
-    st.info("""
-    1. **查看员工评价**: 脉脉、Glassdoor 等平台的真实评价
-    2. **查询企业信息**: 天眼查、企查查了解公司背景
-    3. **注意面试信号**: 面试中是否尊重候选人
-    4. **问清楚薪资结构**: 底薪、绩效、年终奖比例
-    5. **了解加班情况**: 是否强制加班，有无加班费
-    """)
-    
-    st.divider()
-    
-    st.subheader("黑名单公司查询")
-    
-    blacklist_query = st.text_input("查询公司", placeholder="输入公司名称")
-    
-    if blacklist_query:
-        companies = job_manager.search_companies(blacklist_query)
+    else:
+        # 未搜索时显示常见坑点类型
+        st.subheader("常见坑点类型")
         
-        for comp in companies:
-            c = comp.get("c", {})
-            risk = c.get("risk_level", "medium")
-            
-            if risk in ["high", "blacklist"]:
-                st.error(f"⚠️ **{c.get('name', '')}** 存在高风险！")
-                st.write(f"风险等级: {risk.upper()}")
-                st.write(f"风险分数: {c.get('risk_score', 0):.2f}")
-            else:
-                st.success(f"✅ **{c.get('name', '')}** 暂未发现明显风险")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.error("### 💰 欠薪\n拖欠工资，不按时发放")
+        
+        with col2:
+            st.error("### 🎭 PUA\n精神控制，贬低员工")
+        
+        with col3:
+            st.error("### ⏰ 996\n强制加班，没有加班费")
+        
+        with col4:
+            st.error("### 📉 裁员\n频繁裁员，不稳定")
+        
+        st.divider()
+        
+        st.subheader("避坑技巧")
+        
+        st.info("""
+        1. **查看员工评价**: 脉脉、Glassdoor 等平台的真实评价
+        2. **查询企业信息**: 天眼查、企查查了解公司背景
+        3. **注意面试信号**: 面试中是否尊重候选人
+        4. **问清楚薪资结构**: 底薪、绩效、年终奖比例
+        5. **了解加班情况**: 是否强制加班，有无加班费
+        """)
 
 
 # ============================================================
