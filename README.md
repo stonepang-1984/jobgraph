@@ -111,6 +111,17 @@ make dev
 make deploy
 ```
 
+### Streamlit Cloud 部署（免费）
+
+1. Fork 本项目到你的 GitHub
+2. 访问 [share.streamlit.io](https://share.streamlit.io)
+3. 连接你的 GitHub 仓库
+4. 选择 `streamlit_app.py` 作为入口文件
+5. 依赖文件选择 `requirements-streamlit.txt`
+6. 点击部署
+
+> 注意：Streamlit Cloud 版本使用 SQLite 存储，功能会有所简化
+
 ### 导入更多数据 (可选)
 
 从数据中心获取最新数据：
