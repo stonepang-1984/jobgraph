@@ -100,3 +100,4 @@ docs/draft_*
 
 # User data
 data/user/
+data/*.db

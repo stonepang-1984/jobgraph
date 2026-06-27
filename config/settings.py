@@ -71,6 +71,16 @@ class Settings(BaseSettings):
     processing: ProcessingSettings = ProcessingSettings()
     retrieval: RetrievalSettings = RetrievalSettings()
 
+    # 存储后端配置
+    storage_backend: str = Field(default="sqlite", alias="STORAGE_BACKEND")
+    sqlite_db_path: str = Field(default="./data/jobgraph.db", alias="SQLITE_DB_PATH")
+
+    # PyTorch 配置
+    use_torch: bool = Field(default=False, alias="USE_TORCH")
+
+    # Demo 模式
+    demo_mode: bool = Field(default=False, alias="DEMO_MODE")
+
     data_dir: str = Field(default="./data", alias="DATA_DIR")
     raw_dir: str = Field(default="./data/raw", alias="RAW_DIR")
     processed_dir: str = Field(default="./data/processed", alias="PROCESSED_DIR")

@@ -3,9 +3,19 @@
 聚焦场景: 求职 - 帮你找到靠谱的工作，避开坑人的公司
 """
 
+import os
 from loguru import logger
 
-from src.graph.neo4j_client import neo4j_client
+# 根据配置选择存储后端
+storage_backend = os.getenv("STORAGE_BACKEND", "sqlite").lower()
+
+if storage_backend == "neo4j":
+    from src.graph.neo4j_client import neo4j_client as storage
+else:
+    from src.graph.sqlite_client import SQLiteClient
+    db_path = os.getenv("SQLITE_DB_PATH", "data/jobgraph.db")
+    storage = SQLiteClient(db_path)
+
 from src.jobgraph.models import (
     Company,
     Job,
@@ -49,7 +59,7 @@ class JobGraphManager:
             c.source = $source,
             c.updated_at = datetime()
         """
-        neo4j_client.execute_write(
+        storage.execute_write(
             cypher,
             {
                 "id": company.id,
@@ -91,7 +101,7 @@ class JobGraphManager:
                count(DISTINCT p) AS pitfall_count,
                avg(r.overall_rating) AS avg_rating
         """
-        results = neo4j_client.execute_query(cypher, {"id": company_id})
+        results = storage.execute_query(cypher, {"id": company_id})
         return results[0] if results else None
 
     def search_companies(self, query: str, limit: int = 20) -> list[dict]:
@@ -105,7 +115,7 @@ class JobGraphManager:
         ORDER BY c.avg_rating DESC
         LIMIT $limit
         """
-        return neo4j_client.execute_query(cypher, {"query": query, "limit": limit})
+        return storage.execute_query(cypher, {"query": query, "limit": limit})
 
     def get_company_risk_assessment(self, company_id: str) -> dict:
         """获取公司风险评估."""
@@ -126,7 +136,7 @@ class JobGraphManager:
                avg(r.work_life_rating) AS avg_work_life,
                count(DISTINCT r) AS review_count
         """
-        results = neo4j_client.execute_query(cypher, {"id": company_id})
+        results = storage.execute_query(cypher, {"id": company_id})
         return results[0] if results else {}
 
     # ============================================================
@@ -160,7 +170,7 @@ class JobGraphManager:
         MATCH (c:Company {id: $company_id})
         MERGE (c)-[:HAS_JOB]->(j)
         """
-        neo4j_client.execute_write(
+        storage.execute_write(
             cypher,
             {
                 "id": job.id,
@@ -216,7 +226,7 @@ class JobGraphManager:
         ORDER BY j.posted_at DESC
         LIMIT $limit
         """
-        return neo4j_client.execute_query(cypher, params)
+        return storage.execute_query(cypher, params)
 
     def get_job_salary_range(self, job_title: str, location: str = None) -> dict:
         """获取岗位薪资范围."""
@@ -243,7 +253,7 @@ class JobGraphManager:
                avg((salary_min + salary_max) / 2) AS mean,
                count(*) AS sample_count
         """
-        results = neo4j_client.execute_query(cypher, params)
+        results = storage.execute_query(cypher, params)
         return results[0] if results else {}
 
     # ============================================================
@@ -253,7 +263,7 @@ class JobGraphManager:
     def create_review(self, review: Review) -> None:
         """创建员工评价."""
         # 先检查公司是否存在
-        company_check = neo4j_client.execute_query(
+        company_check = storage.execute_query(
             "MATCH (c:Company {id: $company_id}) RETURN c.id AS id", {"company_id": review.company_id}
         )
 
@@ -285,7 +295,7 @@ class JobGraphManager:
         MATCH (c:Company {id: $company_id})
         MERGE (c)-[:HAS_REVIEW]->(r)
         """
-        neo4j_client.execute_write(
+        storage.execute_write(
             cypher,
             {
                 "id": review.id,
@@ -316,7 +326,7 @@ class JobGraphManager:
         ORDER BY r.posted_at DESC
         LIMIT $limit
         """
-        return neo4j_client.execute_query(cypher, {"id": company_id, "limit": limit})
+        return storage.execute_query(cypher, {"id": company_id, "limit": limit})
 
     # ============================================================
     # Pitfall CRUD
@@ -340,7 +350,7 @@ class JobGraphManager:
         MATCH (c:Company {id: $company_id})
         MERGE (c)-[:HAS_PITFALL]->(p)
         """
-        neo4j_client.execute_write(
+        storage.execute_write(
             cypher,
             {
                 "id": pitfall.id,
@@ -364,7 +374,7 @@ class JobGraphManager:
         RETURN p
         ORDER BY p.severity DESC, p.report_count DESC
         """
-        return neo4j_client.execute_query(cypher, {"id": company_id})
+        return storage.execute_query(cypher, {"id": company_id})
 
     # ============================================================
     # User Profile
@@ -391,7 +401,7 @@ class JobGraphManager:
             u.created_at = COALESCE(u.created_at, datetime()),
             u.updated_at = datetime()
         """
-        neo4j_client.execute_write(
+        storage.execute_write(
             cypher,
             {
                 "id": user.id,
@@ -418,7 +428,7 @@ class JobGraphManager:
         MATCH (u:UserProfile {id: $id})
         RETURN u
         """
-        results = neo4j_client.execute_query(cypher, {"id": user_id})
+        results = storage.execute_query(cypher, {"id": user_id})
         return results[0]["u"] if results else None
 
     # ============================================================
@@ -483,7 +493,7 @@ class JobGraphManager:
         ORDER BY total_score DESC
         LIMIT $limit
         """
-        return neo4j_client.execute_query(cypher, {"user_id": user_id, "limit": limit})
+        return storage.execute_query(cypher, {"user_id": user_id, "limit": limit})
 
     # ============================================================
     # Statistics
@@ -495,7 +505,7 @@ class JobGraphManager:
 
         # 先获取所有存在的标签
         try:
-            labels_result = neo4j_client.execute_query("CALL db.labels()")
+            labels_result = storage.execute_query("CALL db.labels()")
             existing_labels = {r["label"] for r in labels_result}
         except Exception:
             existing_labels = set()
@@ -512,7 +522,7 @@ class JobGraphManager:
         for stat_name, label in label_queries.items():
             if label in existing_labels:
                 try:
-                    result = neo4j_client.execute_query(f"MATCH (n:{label}) RETURN count(n) AS cnt")
+                    result = storage.execute_query(f"MATCH (n:{label}) RETURN count(n) AS cnt")
                     stats[stat_name] = result[0]["cnt"] if result else 0
                 except Exception:
                     stats[stat_name] = 0

@@ -7,9 +7,18 @@
 降级策略：匹配结果不足时提示用户手动输入
 """
 
+import os
 from loguru import logger
 
-from src.graph.neo4j_client import neo4j_client
+# 根据配置选择存储后端
+storage_backend = os.getenv("STORAGE_BACKEND", "sqlite").lower()
+
+if storage_backend == "neo4j":
+    from src.graph.neo4j_client import neo4j_client as storage
+else:
+    from src.graph.sqlite_client import SQLiteClient
+    db_path = os.getenv("SQLITE_DB_PATH", "data/jobgraph.db")
+    storage = SQLiteClient(db_path)
 
 
 class MatchResult:
@@ -231,7 +240,7 @@ class JobMatcher:
         """
 
         try:
-            results = neo4j_client.execute_query(cypher, params)
+            results = storage.execute_query(cypher, params)
             logger.info(f"字段初筛完成，找到 {len(results)} 个职位")
             return results
         except Exception as e:
@@ -530,7 +539,7 @@ class JobMatcher:
     def _get_total_job_count(self) -> int:
         """获取职位总数"""
         try:
-            result = neo4j_client.execute_query("MATCH (j:Job {is_active: true}) RETURN count(j) AS cnt")
+            result = storage.execute_query("MATCH (j:Job {is_active: true}) RETURN count(j) AS cnt")
             return result[0]["cnt"] if result else 0
         except Exception:
             return 0
@@ -666,7 +675,7 @@ class JobMatcher:
             params["skills"] = skills or []
             params["exp_years"] = experience_years
 
-            results = neo4j_client.execute_query(cypher, params)
+            results = storage.execute_query(cypher, params)
 
             logger.info(f"手动匹配完成，找到 {len(results)} 个岗位")
 
@@ -718,7 +727,7 @@ class JobMatcher:
             MATCH (u:UserProfile {id: $user_id})
             RETURN u
             """
-            results = neo4j_client.execute_query(cypher, {"user_id": user_id})
+            results = storage.execute_query(cypher, {"user_id": user_id})
             if results:
                 return dict(results[0].get("u", {}))
             return None
