@@ -1,0 +1,111 @@
+name: Release Offline Package
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zip
+
+      - name: Build offline package
+        run: |
+          chmod +x scripts/build_offline_linux.sh
+          ./scripts/build_offline_linux.sh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-linux
+          path: dist/jobgraph-offline-linux-x64.tar.gz
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build offline package
+        shell: cmd
+        run: |
+          call scripts\build_offline_windows.bat
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-windows
+          path: dist/jobgraph-offline-windows-x64.zip
+
+  release:
+    needs: [build-linux, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+
+      - name: List files
+        run: ls -la offline-linux/ offline-windows/ 2>/dev/null || true
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: JobGraph ${{ github.ref_name }}
+          body: |
+            ## JobGraph ${{ github.ref_name }}
+            
+            ### 下载
+            
+            | 平台 | 文件 | 说明 |
+            |------|------|------|
+            | **Linux** | `jobgraph-offline-linux-x64.tar.gz` | 离线部署包 |
+            | **Windows** | `jobgraph-offline-windows-x64.zip` | 离线部署包 |
+            
+            ### 特性
+            
+            - ✅ **无需 Neo4j** - 使用 SQLite 本地存储
+            - ✅ **无需 PyTorch** - 使用规则模式匹配
+            - ✅ **离线可用** - 无需联网
+            - ✅ **隐私保护** - 数据完全本地化
+            
+            ### 使用方法
+            
+            **Linux**:
+            ```bash
+            tar -xzf jobgraph-offline-linux-x64.tar.gz
+            cd jobgraph-offline-build
+            ./start.sh
+            ```
+            
+            **Windows**:
+            1. 解压 `jobgraph-offline-windows-x64.zip`
+            2. 双击 `start.bat`
+            
+            访问 http://localhost:8504
+            
+            ### 内置数据
+            - 武汉光谷企业 + 全国大厂
+            - 含完整岗位职责和任职要求
+          files: |
+            offline-linux/jobgraph-offline-linux-x64.tar.gz
+            offline-windows/jobgraph-offline-windows-x64.zip
+          draft: false
+          prerelease: false
