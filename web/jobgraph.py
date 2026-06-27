@@ -59,9 +59,7 @@ pages = [
     "⚠️ 避坑指南",
     "📊 薪资行情",
     "✏️ 贡献数据",
-    "🔄 数据同步",
     "👤 用户中心",
-    "⚙️ LLM 配置",
 ]
 
 # 获取当前页面
@@ -1898,473 +1896,167 @@ elif page == "✏️ 贡献数据":
 elif page == "👤 用户中心":
     st.header("👤 用户中心")
     
-    user_stats = user_manager.get_user_stats()
+    # 使用 tabs 组织功能
+    tab1, tab2, tab3 = st.tabs(["👤 个人信息", "🔄 数据同步", "⚙️ LLM 配置"])
     
-    # 用户信息卡片
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("基本信息")
-        st.write(f"**昵称**: {user_stats['nickname']}")
-        st.write(f"**设备ID**: {user_stats['device_id']}")
-        st.write(f"**等级**: Lv.{user_stats['level']}")
-        st.write(f"**积分**: {user_stats['points']}")
-    
-    with col2:
-        st.subheader("贡献统计")
-        contributions = user_stats.get("contributions", {})
-        st.write(f"**评价**: {contributions.get('reviews', 0)} 条")
-        st.write(f"**坑点**: {contributions.get('pitfalls', 0)} 条")
-        st.write(f"**薪资**: {contributions.get('salaries', 0)} 条")
-    
-    st.divider()
-    
-    # 设置
-    st.subheader("设置")
-    
-    new_nickname = st.text_input("修改昵称", value=user_stats['nickname'])
-    if st.button("保存昵称"):
-        user_manager.set_nickname(new_nickname)
-        st.success("昵称已更新")
-        st.rerun()
-
-
-# ============================================================
-# Data Sync Page
-# ============================================================
-
-elif page == "🔄 数据同步":
-    st.header("🔄 数据同步")
-    
-    st.info("从数据中心同步最新的公司、岗位、评价数据")
-    
-    # 导入自动同步模块
-    from src.jobgraph.sync.auto_sync import auto_sync
-    
-    # 获取同步状态
-    sync_status = auto_sync.get_status_info()
-    
-    # 显示同步状态
-    st.subheader("📊 同步状态")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        connected = sync_status.get("connected", False)
-        st.metric("连接状态", "✅ 已连接" if connected else "❌ 未连接")
-    with col2:
-        st.metric("同步次数", sync_status.get("sync_count", 0))
-    with col3:
-        st.metric("公司数量", sync_status.get("companies_synced", 0))
-    with col4:
-        st.metric("职位数量", sync_status.get("jobs_synced", 0))
-    
-    last_sync = sync_status.get("last_sync")
-    if last_sync:
-        st.caption(f"上次同步: {last_sync[:19]}")
-    
-    st.divider()
-    
-    # 同步模式选择
-    sync_mode = st.radio(
-        "选择同步模式",
-        ["🔄 自动同步", "📦 离线数据包", "🌐 手动同步"],
-        horizontal=True,
-    )
-    
-    st.divider()
-    
-    # 自动同步
-    if sync_mode == "🔄 自动同步":
-        st.subheader("🔄 自动同步配置")
+    # Tab 1: 个人信息
+    with tab1:
+        user_stats = user_manager.get_user_stats()
         
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("基本信息")
+            st.write(f"**昵称**: {user_stats['nickname']}")
+            st.write(f"**设备ID**: {user_stats['device_id']}")
+            st.write(f"**等级**: Lv.{user_stats['level']}")
+            st.write(f"**积分**: {user_stats['points']}")
+        
+        with col2:
+            st.subheader("贡献统计")
+            contributions = user_stats.get("contributions", {})
+            st.write(f"**评价**: {contributions.get('reviews', 0)} 条")
+            st.write(f"**坑点**: {contributions.get('pitfalls', 0)} 条")
+            st.write(f"**薪资**: {contributions.get('salaries', 0)} 条")
+        
+        st.divider()
+        
+        st.subheader("设置")
+        new_nickname = st.text_input("修改昵称", value=user_stats['nickname'])
+        if st.button("保存昵称"):
+            user_manager.set_nickname(new_nickname)
+            st.success("昵称已更新")
+            st.rerun()
+    
+    # Tab 2: 数据同步
+    with tab2:
+        from src.jobgraph.sync.auto_sync import auto_sync
+        
+        sync_status = auto_sync.get_status_info()
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            connected = sync_status.get("connected", False)
+            st.metric("连接状态", "✅ 已连接" if connected else "❌ 未连接")
+        with col2:
+            st.metric("同步次数", sync_status.get("sync_count", 0))
+        with col3:
+            st.metric("公司数量", sync_status.get("companies_synced", 0))
+        with col4:
+            st.metric("职位数量", sync_status.get("jobs_synced", 0))
+        
+        last_sync = sync_status.get("last_sync")
+        if last_sync:
+            st.caption(f"上次同步: {last_sync[:19]}")
+        
+        st.divider()
+        
+        # 自动同步配置
         with st.form("auto_sync_config"):
             server_url = st.text_input(
                 "数据中心地址",
                 value=auto_sync.config.get("server_url", ""),
                 placeholder="http://192.168.x.x:8000",
-                help="admin 仓库的 API 服务地址"
             )
             
             col1, col2 = st.columns(2)
             with col1:
                 auto_sync_enabled = st.checkbox("启用自动同步", value=auto_sync.config.get("auto_sync", False))
-                sync_on_startup = st.checkbox("启动时同步", value=auto_sync.config.get("sync_on_startup", True))
             with col2:
-                sync_interval = st.selectbox(
-                    "同步频率",
-                    ["每天", "每周", "每月"],
-                    index=0,
-                )
+                sync_interval = st.selectbox("同步频率", ["每天", "每周", "每月"], index=0)
             
             if st.form_submit_button("💾 保存配置"):
                 interval_map = {"每天": 86400, "每周": 604800, "每月": 2592000}
                 auto_sync.save_config({
                     "server_url": server_url,
                     "auto_sync": auto_sync_enabled,
-                    "sync_on_startup": sync_on_startup,
                     "sync_interval": interval_map.get(sync_interval, 86400),
                 })
-                auto_sync.server_url = server_url
                 st.success("✅ 配置已保存")
                 st.rerun()
         
-        st.divider()
-        
-        # 立即同步按钮
         if st.button("🔄 立即同步", type="primary"):
             if not auto_sync.server_url:
                 st.warning("请先配置数据中心地址")
             else:
                 with st.spinner("正在同步..."):
                     result = auto_sync.check_and_sync()
-                    
                     if result.get("success"):
                         st.success(f"✅ 同步完成！")
-                        st.write(f"- 公司: {result.get('companies', 0)} 家")
-                        st.write(f"- 职位: {result.get('jobs', 0)} 个")
-                        st.write(f"- 评价: {result.get('reviews', 0)} 条")
                         st.rerun()
                     else:
                         st.error(f"同步失败: {result.get('error', '未知错误')}")
     
-    # 离线数据包
-    elif sync_mode == "📦 离线数据包":
-        st.subheader("📦 离线数据包导入")
+    # Tab 3: LLM 配置
+    with tab3:
+        from src.jobgraph.config_manager import config_manager
         
-        st.markdown("""
-        **使用场景**: 
-        - 从数据管理员处获取数据包
+        is_configured = config_manager.is_llm_configured()
         
-        **操作步骤**:
-        1. 从数据管理员获取 `.json` 数据包
-        2. 上传数据包
-        3. 点击导入
-        """)
+        if is_configured:
+            st.success("✅ LLM 已配置 - 简历解析将使用 AI 智能提取")
+        else:
+            st.warning("⚠️ LLM 未配置 - 简历解析使用规则模式（精度有限）")
         
-        uploaded_file = st.file_uploader("上传数据包", type=["json"])
+        llm_config = config_manager.get_llm_config()
         
-        if uploaded_file and st.button("导入数据包", type="primary"):
-            with st.spinner("正在导入..."):
-                try:
-                    import tempfile
-                    import os
-                    
-                    # 保存上传文件
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".json") as tmp:
-                        tmp.write(uploaded_file.getbuffer())
-                        tmp_path = tmp.name
-                    
-                    # 导入
-                    import json
-                    with open(tmp_path, "r", encoding="utf-8") as f:
-                        data = json.load(f)
-                    
-                    # 导入到 Neo4j
-                    from src.graph.neo4j_client import neo4j_client
-                    
-                    companies_count = 0
-                    jobs_count = 0
-                    reviews_count = 0
-                    
-                    # 导入公司
-                    for company in data.get("companies", []):
-                        try:
-                            cypher = """
-                            MERGE (c:Company {id: $id})
-                            SET c.name = $name, c.industry = $industry, c.updated_at = datetime()
-                            """
-                            neo4j_client.execute_write(cypher, company)
-                            companies_count += 1
-                        except Exception as e:
-                            logger.error(f"导入公司失败: {e}")
-                    
-                    # 导入职位
-                    for job in data.get("jobs", []):
-                        try:
-                            cypher = """
-                            MERGE (j:Job {id: $id})
-                            SET j.title = $title, j.company_name = $company_name,
-                                j.description = $description, j.requirements = $requirements,
-                                j.updated_at = datetime()
-                            WITH j
-                            MATCH (c:Company {id: $company_id})
-                            MERGE (c)-[:HAS_JOB]->(j)
-                            """
-                            neo4j_client.execute_write(cypher, job)
-                            jobs_count += 1
-                        except Exception as e:
-                            logger.error(f"导入职位失败: {e}")
-                    
-                    # 导入评价
-                    for review in data.get("reviews", []):
-                        try:
-                            cypher = """
-                            MERGE (r:Review {id: $id})
-                            SET r.company_id = $company_id, r.title = $title,
-                                r.overall_rating = $overall_rating, r.updated_at = datetime()
-                            WITH r
-                            MATCH (c:Company {id: $company_id})
-                            MERGE (c)-[:HAS_REVIEW]->(r)
-                            """
-                            neo4j_client.execute_write(cypher, review)
-                            reviews_count += 1
-                        except Exception as e:
-                            logger.error(f"导入评价失败: {e}")
-                    
-                    # 清理
-                    os.unlink(tmp_path)
-                    
-                    st.success("✅ 数据包导入成功！")
-                    st.write(f"- 公司: {companies_count} 家")
-                    st.write(f"- 职位: {jobs_count} 个")
-                    st.write(f"- 评价: {reviews_count} 条")
-                    
-                except Exception as e:
-                    st.error(f"导入失败: {e}")
-    
-    # 手动同步
-    elif sync_mode == "🌐 手动同步":
-        st.subheader("🌐 手动同步")
+        provider = st.radio("选择 LLM 提供商", ["OpenAI API", "本地 Ollama"], horizontal=True)
         
-        server_url = st.text_input(
-            "数据中心地址",
-            value=auto_sync.server_url,
-            placeholder="http://192.168.x.x:8000",
-        )
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            if st.button("测试连接"):
-                if server_url:
-                    auto_sync.server_url = server_url
-                    with st.spinner("测试中..."):
-                        if auto_sync.test_connection():
-                            st.success("✅ 连接成功！")
-                        else:
-                            st.error("❌ 连接失败")
-                else:
-                    st.warning("请输入数据中心地址")
-        
-        with col2:
-            if st.button("立即同步", type="primary"):
-                if server_url:
-                    auto_sync.server_url = server_url
-                    with st.spinner("同步中..."):
-                        result = auto_sync.check_and_sync()
-                        
-                        if result.get("success"):
-                            st.success("✅ 同步完成！")
-                            st.json(result)
-                            st.rerun()
-                        else:
-                            st.error(f"同步失败: {result.get('error', '未知错误')}")
-                else:
-                    st.warning("请输入数据中心地址")
-
-
-# ============================================================
-# LLM Configuration
-# ============================================================
-
-elif page == "⚙️ LLM 配置":
-    st.header("⚙️ LLM 配置")
-    
-    # 当前状态
-    is_configured = config_manager.is_llm_configured()
-    
-    if is_configured:
-        st.success("✅ LLM 已配置 - 简历解析将使用 AI 智能提取")
-    else:
-        st.warning("⚠️ LLM 未配置 - 简历解析使用规则模式（精度有限）")
-    
-    st.divider()
-    
-    # 获取当前配置
-    llm_config = config_manager.get_llm_config()
-    
-    # 选择提供商
-    provider = st.radio(
-        "选择 LLM 提供商",
-        ["OpenAI API", "本地 Ollama"],
-        horizontal=True,
-    )
-    
-    if provider == "OpenAI API":
-        st.subheader("OpenAI API 配置")
-        
-        st.info("""
-        **获取 API Key**：
-        1. 访问 https://platform.openai.com/api-keys
-        2. 创建新的 API Key
-        3. 复制并粘贴到下方
-        
-        **兼容 API**：
-        - 支持 OpenAI 兼容的第三方 API（如 DeepSeek、Moonshot 等）
-        - 只需修改 API Base URL 和 Model 名称
-        """)
-        
-        with st.form("openai_config"):
-            openai_key = st.text_input(
-                "API Key *",
-                value=llm_config.get("openai_api_key", ""),
-                type="password",
-                placeholder="sk-xxxxxxxxxxxxxxxx",
-                help="OpenAI API Key 或兼容 API 的 Key"
-            )
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                openai_base = st.text_input(
-                    "API Base URL",
-                    value=llm_config.get("openai_api_base", "https://api.openai.com/v1"),
-                    help="OpenAI 或兼容 API 的地址"
-                )
-            
-            with col2:
-                openai_model = st.text_input(
-                    "模型名称",
-                    value=llm_config.get("openai_model", "gpt-4o"),
-                    help="如 gpt-4o, gpt-3.5-turbo, deepseek-chat 等"
-                )
-            
-            if st.form_submit_button("💾 保存配置", type="primary"):
-                if openai_key and openai_key != "sk-your-openai-api-key":
-                    success = config_manager.save_llm_config(
-                        provider="openai",
-                        openai_api_key=openai_key,
-                        openai_api_base=openai_base,
-                        openai_model=openai_model,
-                    )
-                    if success:
+        if provider == "OpenAI API":
+            with st.form("openai_config"):
+                openai_key = st.text_input("API Key *", value=llm_config.get("openai_api_key", ""), type="password")
+                col1, col2 = st.columns(2)
+                with col1:
+                    openai_base = st.text_input("API Base URL", value=llm_config.get("openai_api_base", "https://api.openai.com/v1"))
+                with col2:
+                    openai_model = st.text_input("模型名称", value=llm_config.get("openai_model", "gpt-4o"))
+                
+                if st.form_submit_button("💾 保存配置"):
+                    if openai_key and openai_key != "sk-your-openai-api-key":
+                        config_manager.save_llm_config(
+                            provider="openai",
+                            openai_api_key=openai_key,
+                            openai_api_base=openai_base,
+                            openai_model=openai_model,
+                        )
                         st.success("✅ 配置已保存！重启服务后生效")
                         st.rerun()
                     else:
-                        st.error("❌ 保存失败")
-                else:
-                    st.warning("请输入有效的 API Key")
-        
-        # 常用 API 预设（在表单外面）
-        st.write("**快速设置**：")
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            if st.button("OpenAI 官方"):
-                config_manager.save_llm_config(
-                    provider="openai",
-                    openai_api_base="https://api.openai.com/v1",
-                    openai_model="gpt-4o",
-                )
-                st.rerun()
-        
-        with col2:
-            if st.button("DeepSeek"):
-                config_manager.save_llm_config(
-                    provider="openai",
-                    openai_api_base="https://api.deepseek.com/v1",
-                    openai_model="deepseek-chat",
-                )
-                st.rerun()
-        
-        with col3:
-            if st.button("Moonshot"):
-                config_manager.save_llm_config(
-                    provider="openai",
-                    openai_api_base="https://api.moonshot.cn/v1",
-                    openai_model="moonshot-v1-8k",
-                )
-                st.rerun()
-    
-    else:  # Ollama
-        st.subheader("本地 Ollama 配置")
-        
-        st.info("""
-        **安装 Ollama**：
-        ```bash
-        # Linux/macOS
-        curl -fsSL https://ollama.com/install.sh | sh
-        
-        # 下载模型
-        ollama pull qwen2.5:14b
-        ```
-        
-        **推荐模型**：
-        - `qwen2.5:14b` - 中文效果好，需要 16GB 内存
-        - `qwen2.5:7b` - 轻量版，需要 8GB 内存
-        - `llama3:8b` - 英文效果好
-        """)
-        
-        with st.form("ollama_config"):
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                ollama_url = st.text_input(
-                    "Ollama 服务地址",
-                    value=llm_config.get("ollama_base_url", "http://localhost:11434"),
-                    help="Ollama 服务的地址"
-                )
-            
-            with col2:
-                ollama_model = st.text_input(
-                    "模型名称",
-                    value=llm_config.get("ollama_model", "qwen2.5:14b"),
-                    help="已下载的模型名称"
-                )
-            
-            if st.form_submit_button("💾 保存配置", type="primary"):
-                success = config_manager.save_llm_config(
-                    provider="ollama",
-                    ollama_base_url=ollama_url,
-                    ollama_model=ollama_model,
-                )
-                if success:
+                        st.warning("请输入有效的 API Key")
+        else:
+            with st.form("ollama_config"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    ollama_url = st.text_input("Ollama 服务地址", value=llm_config.get("ollama_base_url", "http://localhost:11434"))
+                with col2:
+                    ollama_model = st.text_input("模型名称", value=llm_config.get("ollama_model", "qwen2.5:14b"))
+                
+                if st.form_submit_button("💾 保存配置"):
+                    config_manager.save_llm_config(
+                        provider="ollama",
+                        ollama_base_url=ollama_url,
+                        ollama_model=ollama_model,
+                    )
                     st.success("✅ 配置已保存！重启服务后生效")
                     st.rerun()
-                else:
-                    st.error("❌ 保存失败")
-    
-    st.divider()
-    
-    # 测试连接
-    st.subheader("🧪 测试连接")
-    
-    # 显示当前激活的提供商
-    if config_manager.is_llm_configured():
-        active_provider = config_manager.get_active_provider()
-        st.info(f"当前激活的 LLM 提供商: **{active_provider.upper()}**")
-    
-    if st.button("测试 LLM 连接"):
-        if not config_manager.is_llm_configured():
-            st.warning("请先配置 LLM（输入 OpenAI API Key 或配置 Ollama 地址）")
-        else:
-            with st.spinner("正在测试连接..."):
-                try:
-                    from src.jobgraph.resume.extractor import resume_extractor
-                    
-                    # 重置 LLM 可用性缓存
-                    resume_extractor._llm_available = None
-                    
-                    # 测试提取
-                    test_text = "5年Java开发经验，熟悉Spring Boot、MySQL、Redis"
-                    result = resume_extractor.extract(test_text)
-                    
-                    st.success("✅ LLM 连接成功！")
-                    st.write(f"测试结果：识别到 {len(result.skills)} 个技能")
-                    st.write(f"技能: {result.skills}")
-                except Exception as e:
-                    st.error(f"❌ 连接失败: {e}")
-                    st.info("请检查：\n- API Key 是否正确\n- Ollama 服务是否启动\n- 网络连接是否正常")
-    
-    st.divider()
-    
-    # 隐私说明
-    st.info("""
-    🔒 **隐私说明**：
-    - API Key 仅保存在本地 `.env` 文件中
-    - 简历内容通过 API 发送到 LLM 服务进行解析
-    - 如果担心隐私，建议使用本地 Ollama
-    """)
+        
+        # 测试连接
+        st.divider()
+        st.subheader("🧪 测试连接")
+        
+        if st.button("测试 LLM 连接"):
+            if not config_manager.is_llm_configured():
+                st.warning("请先配置 LLM")
+            else:
+                with st.spinner("正在测试..."):
+                    try:
+                        from src.jobgraph.resume.extractor import resume_extractor
+                        resume_extractor._llm_available = None
+                        test_text = "5年Java开发经验，熟悉Spring Boot、MySQL、Redis"
+                        result = resume_extractor.extract(test_text)
+                        st.success(f"✅ LLM 连接成功！识别到 {len(result.skills)} 个技能")
+                    except Exception as e:
+                        st.error(f"❌ 连接失败: {e}")
 
 
 # ============================================================
