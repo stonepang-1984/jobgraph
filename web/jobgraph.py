@@ -494,31 +494,7 @@ elif page == "📄 简历管理":
                 
                 st.divider()
                 
-                # 提供下载更新后的简历
-                resume_text = f"""个人简历
-========
-
-基本信息
---------
-当前职位：{current_profile.get('current_title', '未设置')}
-工作年限：{current_profile.get('experience_years', 0)} 年
-最高学历：{current_profile.get('education', '未设置')}
-
-技能列表
---------
-{', '.join(current_skills)}
-
-更新时间：{current_profile.get('saved_at', datetime.now().strftime("%Y-%m-%d %H:%M:%S"))}
-"""
-                
-                st.download_button(
-                    label="📥 下载更新后的简历",
-                    data=resume_text,
-                    file_name="resume_updated.txt",
-                    mime="text/plain",
-                )
-                
-                # 原始文件下载
+                # 原始文件下载（作为参考）
                 file_path = user_data_manager.get_resume_file_path(user_id, original_filename)
                 if file_path and file_path.exists():
                     with open(file_path, "rb") as f:
