@@ -4,6 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Streamlit Cloud](https://img.shields.io/badge/Streamlit%20Cloud-Live%20Demo-FF4B4B.svg)](https://jobgraph-everything.streamlit.app/)
 
 ## 🎯 为什么选择 JobGraph？
 
@@ -111,7 +112,15 @@ make dev
 make deploy
 ```
 
-### Streamlit Cloud 部署（免费）
+### Streamlit Cloud 在线体验（免费）
+
+立即体验在线 Demo：
+
+👉 **[https://jobgraph-everything.streamlit.app/](https://jobgraph-everything.streamlit.app/)**
+
+> 在线版使用 SQLite 存储，无需 Neo4j，无需 PyTorch
+
+#### 自己部署：
 
 1. Fork 本项目到你的 GitHub
 2. 访问 [share.streamlit.io](https://share.streamlit.io)
@@ -119,8 +128,6 @@ make deploy
 4. 选择 `streamlit_app.py` 作为入口文件
 5. 依赖文件选择 `requirements-streamlit.txt`
 6. 点击部署
-
-> 注意：Streamlit Cloud 版本使用 SQLite 存储，功能会有所简化
 
 ### 导入更多数据 (可选)
 

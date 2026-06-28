@@ -34,6 +34,7 @@ pdfplumber>=0.11.0
 
 # Audio/Video
 openai-whisper>=20231117
+numba>=0.65.0  # Python 3.14+ requires llvmlite>=0.47
 
 # API & Web
 fastapi>=0.110.0
