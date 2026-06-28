@@ -4,7 +4,16 @@
 """
 
 import os
+
 from loguru import logger
+
+from src.jobgraph.models import (
+    Company,
+    Job,
+    Pitfall,
+    Review,
+    UserProfile,
+)
 
 # 根据配置选择存储后端
 storage_backend = os.getenv("STORAGE_BACKEND", "sqlite").lower()
@@ -15,14 +24,6 @@ else:
     from src.graph.sqlite_client import SQLiteClient
     db_path = os.getenv("SQLITE_DB_PATH", "data/jobgraph.db")
     storage = SQLiteClient(db_path)
-
-from src.jobgraph.models import (
-    Company,
-    Job,
-    Pitfall,
-    Review,
-    UserProfile,
-)
 
 
 class JobGraphManager:

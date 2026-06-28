@@ -3,12 +3,9 @@
 当 Neo4j 不可用时使用的轻量级存储方案
 """
 
-import json
+import os
 import sqlite3
-import uuid
-from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 from loguru import logger
 
@@ -19,7 +16,7 @@ class SQLiteClient:
     def __init__(self, db_path: str = None):
         if db_path is None:
             db_path = os.getenv("SQLITE_DB_PATH", "data/jobgraph.db")
-        
+
         self.db_path = db_path
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
@@ -59,7 +56,7 @@ class SQLiteClient:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
-                
+
                 CREATE TABLE IF NOT EXISTS jobs (
                     id TEXT PRIMARY KEY,
                     title TEXT NOT NULL,
@@ -84,7 +81,7 @@ class SQLiteClient:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
-                
+
                 CREATE TABLE IF NOT EXISTS reviews (
                     id TEXT PRIMARY KEY,
                     company_id TEXT,
@@ -104,7 +101,7 @@ class SQLiteClient:
                     posted_at TIMESTAMP,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
-                
+
                 CREATE TABLE IF NOT EXISTS pitfalls (
                     id TEXT PRIMARY KEY,
                     company_id TEXT,
@@ -118,7 +115,7 @@ class SQLiteClient:
                     is_verified BOOLEAN DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
-                
+
                 CREATE TABLE IF NOT EXISTS user_profiles (
                     id TEXT PRIMARY KEY,
                     name TEXT,
@@ -138,7 +135,7 @@ class SQLiteClient:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
-                
+
                 CREATE INDEX IF NOT EXISTS idx_jobs_company ON jobs(company_id);
                 CREATE INDEX IF NOT EXISTS idx_jobs_location ON jobs(location);
                 CREATE INDEX IF NOT EXISTS idx_reviews_company ON reviews(company_id);
@@ -150,16 +147,16 @@ class SQLiteClient:
         try:
             # 简单的 Cypher 到 SQL 转换
             sql, sql_params = self._cypher_to_sql(cypher, params or {})
-            
+
             with self._connect() as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
                 cursor.execute(sql, sql_params)
                 rows = cursor.fetchall()
-                
+
                 # 转换为字典列表
                 return [dict(row) for row in rows]
-                
+
         except Exception as e:
             logger.error(f"SQLite 查询失败: {e}")
             logger.debug(f"Cypher: {cypher}")
@@ -170,11 +167,11 @@ class SQLiteClient:
         """执行写入"""
         try:
             sql, sql_params = self._cypher_to_sql(cypher, params or {})
-            
+
             with self._connect() as conn:
                 conn.execute(sql, sql_params)
                 conn.commit()
-                
+
         except Exception as e:
             logger.error(f"SQLite 写入失败: {e}")
             logger.debug(f"Cypher: {cypher}")
@@ -183,24 +180,24 @@ class SQLiteClient:
     def _cypher_to_sql(self, cypher: str, params: dict) -> tuple[str, dict]:
         """将简单 Cypher 查询转换为 SQL"""
         cypher = cypher.strip()
-        
+
         # 处理 MATCH (c:Company) RETURN c
         if "MATCH (c:Company)" in cypher and "RETURN c" in cypher:
             sql = "SELECT * FROM companies"
             return sql, {}
-        
+
         # 处理 MATCH (c:Company {id: $id}) RETURN c
         if "MATCH (c:Company {id: $id})" in cypher:
             return "SELECT * FROM companies WHERE id = ?", [params.get("id")]
-        
+
         # 处理 MATCH (j:Job) RETURN j
         if "MATCH (j:Job)" in cypher and "RETURN j" in cypher:
             return "SELECT * FROM jobs WHERE is_active = 1", {}
-        
+
         # 处理 MATCH (r:Review) RETURN r
         if "MATCH (r:Review)" in cypher and "RETURN r" in cypher:
             return "SELECT * FROM reviews", {}
-        
+
         # 通用处理：尝试解析
         logger.warning(f"未识别的 Cypher 查询: {cypher[:100]}...")
         return "SELECT 1", {}
@@ -211,5 +208,3 @@ class SQLiteClient:
         pass
 
 
-# 延迟导入 os
-import os

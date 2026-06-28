@@ -4,7 +4,6 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
 
 
 class StorageBackend(ABC):
@@ -29,9 +28,9 @@ class StorageBackend(ABC):
 def get_storage_backend() -> StorageBackend:
     """根据配置获取存储后端"""
     import os
-    
+
     backend = os.getenv("STORAGE_BACKEND", "sqlite").lower()
-    
+
     if backend == "neo4j":
         from src.graph.neo4j_client import Neo4jClient
         return Neo4jClient()
