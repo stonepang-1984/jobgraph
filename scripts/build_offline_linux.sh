@@ -190,7 +190,6 @@ echo "[5/5] 打包..."
 # Linux tar.gz
 cd /tmp
 tar -czf "$OUTPUT_DIR/jobgraph-offline-linux-x64.tar.gz" "jobgraph-offline-build"
-mv "$OUTPUT_DIR/jobgraph-offline-linux-x64.tar.gz" "$OUTPUT_DIR/jobgraph-offline-linux-x64.tar.gz"
 
 # Windows zip (使用 zip 命令)
 if command -v zip &> /dev/null; then
