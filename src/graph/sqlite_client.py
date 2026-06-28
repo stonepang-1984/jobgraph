@@ -206,5 +206,3 @@ class SQLiteClient:
         """关闭连接"""
         # SQLite 连接是短暂的，不需要显式关闭
         pass
-
-

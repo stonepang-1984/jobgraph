@@ -18,6 +18,7 @@ if storage_backend == "neo4j":
     from src.graph.neo4j_client import neo4j_client as storage
 else:
     from src.graph.sqlite_client import SQLiteClient
+
     db_path = os.getenv("SQLITE_DB_PATH", "data/jobgraph.db")
     storage = SQLiteClient(db_path)
 

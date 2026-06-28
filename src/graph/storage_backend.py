@@ -33,9 +33,11 @@ def get_storage_backend() -> StorageBackend:
 
     if backend == "neo4j":
         from src.graph.neo4j_client import Neo4jClient
+
         return Neo4jClient()
     else:
         from src.graph.sqlite_client import SQLiteClient
+
         return SQLiteClient()
 
 
