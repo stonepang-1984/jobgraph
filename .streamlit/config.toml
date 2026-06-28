@@ -1,6 +1,7 @@
 [server]
 headless = true
-port = 8504
+# Streamlit Cloud 使用默认端口 8501 做健康检查，不要修改
+# port = 8501
 enableCORS = false
 enableXsrfProtection = false
 
