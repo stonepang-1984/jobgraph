@@ -93,7 +93,7 @@ def import_initial_data():
     logger.info("=" * 60)
     logger.info("初始化完成！")
     logger.info(f"  公司: {stats['companies']} 家")
-    logger/logger.info(f"  职位: {stats['jobs']} 个")
+    logger.info(f"  职位: {stats['jobs']} 个")
     logger.info(f"  评价: {stats['reviews']} 条")
     logger.info("=" * 60)
 
