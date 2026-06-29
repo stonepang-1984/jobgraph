@@ -22,6 +22,7 @@ LABEL_MAP = {
 
 _COLUMNS_BY_TABLE = {}
 
+
 def _get_columns(conn, table):
     if table not in _COLUMNS_BY_TABLE:
         cursor = conn.execute(f"PRAGMA table_info({table})")
@@ -197,7 +198,7 @@ class SQLiteClient:
         cypher = cypher.strip()
         results = []
 
-        clauses = re.split(r'\bWITH\b', cypher, flags=re.IGNORECASE)
+        clauses = re.split(r"\bWITH\b", cypher, flags=re.IGNORECASE)
 
         for clause in clauses:
             clause = clause.strip()
@@ -206,8 +207,7 @@ class SQLiteClient:
 
             # MERGE (X:Label {id: $id}) SET col = $val, ...
             m = re.match(
-                r'MERGE\s*\(\s*\w+\s*:\s*(\w+)\s*(?:\{[^}]*\})?\s*\)\s*SET\s+(.+)',
-                clause, re.IGNORECASE | re.DOTALL
+                r"MERGE\s*\(\s*\w+\s*:\s*(\w+)\s*(?:\{[^}]*\})?\s*\)\s*SET\s+(.+)", clause, re.IGNORECASE | re.DOTALL
             )
             if m:
                 label = m.group(1)
@@ -225,23 +225,22 @@ class SQLiteClient:
                 vals.insert(0, params.get("id"))
                 placeholders = ", ".join("?" for _ in cols)
                 cols_str = ", ".join(cols)
-                results.append((
-                    f"INSERT OR REPLACE INTO {table} ({cols_str}) VALUES ({placeholders})",
-                    vals,
-                ))
+                results.append(
+                    (
+                        f"INSERT OR REPLACE INTO {table} ({cols_str}) VALUES ({placeholders})",
+                        vals,
+                    )
+                )
                 continue
 
             # CREATE (X:Label {id: $id, col: $val, ...})
-            m = re.match(
-                r'CREATE\s*\(\s*\w+\s*:\s*(\w+)\s*\{([^}]+)\}\s*\)',
-                clause, re.IGNORECASE | re.DOTALL
-            )
+            m = re.match(r"CREATE\s*\(\s*\w+\s*:\s*(\w+)\s*\{([^}]+)\}\s*\)", clause, re.IGNORECASE | re.DOTALL)
             if m:
                 label = m.group(1)
                 table = self._label_to_table(label)
                 if not table:
                     continue
-                prop_pairs = re.findall(r'(\w+)\s*:\s*\$(\w+)', m.group(2))
+                prop_pairs = re.findall(r"(\w+)\s*:\s*\$(\w+)", m.group(2))
                 cols = []
                 vals = []
                 for col, param_key in prop_pairs:
@@ -251,10 +250,12 @@ class SQLiteClient:
                 if cols:
                     placeholders = ", ".join("?" for _ in cols)
                     cols_str = ", ".join(cols)
-                    results.append((
-                        f"INSERT INTO {table} ({cols_str}) VALUES ({placeholders})",
-                        vals,
-                    ))
+                    results.append(
+                        (
+                            f"INSERT INTO {table} ({cols_str}) VALUES ({placeholders})",
+                            vals,
+                        )
+                    )
                 continue
 
         return results
@@ -284,10 +285,10 @@ class SQLiteClient:
         result = where_clause
 
         # 移除变量别名前缀: c.name → name, j.title → title 等
-        result = re.sub(r'\w+\.(\w+)', r'\1', result)
+        result = re.sub(r"\w+\.(\w+)", r"\1", result)
 
         # any(...) 表达式 → 1=1 （忽略复杂条件）
-        result = re.sub(r'any\s*\([^)]*\)', '1=1', result, flags=re.IGNORECASE | re.DOTALL)
+        result = re.sub(r"any\s*\([^)]*\)", "1=1", result, flags=re.IGNORECASE | re.DOTALL)
 
         # 处理条件中的参数引用
         def handle_condition(m):
@@ -301,8 +302,8 @@ class SQLiteClient:
             return f"{col} {op} NULL"
 
         # = true / = false
-        result = re.sub(r'(\w+)\s*=\s*true\b', r'\1 = 1', result, flags=re.IGNORECASE)
-        result = re.sub(r'(\w+)\s*=\s*false\b', r'\1 = 0', result, flags=re.IGNORECASE)
+        result = re.sub(r"(\w+)\s*=\s*true\b", r"\1 = 1", result, flags=re.IGNORECASE)
+        result = re.sub(r"(\w+)\s*=\s*false\b", r"\1 = 0", result, flags=re.IGNORECASE)
 
         # IS NOT NULL / IS NULL
         # (already SQL compatible)
@@ -315,14 +316,10 @@ class SQLiteClient:
             sql_params.append(f"%{val}%" if val is not None else "%")
             return f"{col} LIKE ?"
 
-        result = re.sub(r'(\w+)\s+CONTAINS\s+\$(\w+)', handle_contains, result, flags=re.IGNORECASE)
+        result = re.sub(r"(\w+)\s+CONTAINS\s+\$(\w+)", handle_contains, result, flags=re.IGNORECASE)
 
         # 比较操作符 >= / <= / = / > / < 接 $param
-        result = re.sub(
-            r'(\w+)\s*([><=!]+)\s*\$(\w+)',
-            lambda m: handle_condition(m),
-            result, flags=re.IGNORECASE
-        )
+        result = re.sub(r"(\w+)\s*([><=!]+)\s*\$(\w+)", lambda m: handle_condition(m), result, flags=re.IGNORECASE)
 
         # $param 单独出现（如 LIMIT $limit 不在这里处理）
         # 处理 MATCH (c:Company {id: $id}) 这种内联参数（已由上层处理）
@@ -336,9 +333,7 @@ class SQLiteClient:
 
         # CALL db.labels()
         if cypher.startswith("CALL db.labels()"):
-            cases = " ".join(
-                f"WHEN '{t}' THEN '{lb}'" for t, lb in self._TABLE_TO_LABEL.items()
-            )
+            cases = " ".join(f"WHEN '{t}' THEN '{lb}'" for t, lb in self._TABLE_TO_LABEL.items())
             known_tables = ", ".join(f"'{t}'" for t in self._TABLE_TO_LABEL)
             return (
                 f"SELECT CASE name {cases} END AS label "
@@ -347,9 +342,7 @@ class SQLiteClient:
             )
 
         # MATCH (n:Label) RETURN count(n) AS cnt
-        m = re.search(
-            r'MATCH\s*\(\s*\w+\s*:\s*(\w+)\s*\).*?RETURN\s+count\(', cypher, re.IGNORECASE | re.DOTALL
-        )
+        m = re.search(r"MATCH\s*\(\s*\w+\s*:\s*(\w+)\s*\).*?RETURN\s+count\(", cypher, re.IGNORECASE | re.DOTALL)
         if m:
             table = self._label_to_table(m.group(1))
             if table:
@@ -357,14 +350,10 @@ class SQLiteClient:
 
         # 提取主 MATCH 中的标签
         m = re.match(
-            r'MATCH\s*\(\s*(\w+)\s*:\s*(\w+)\s*(?:\{\s*id\s*:\s*\$(\w+)\s*\})?\s*\)',
-            cypher, re.IGNORECASE | re.DOTALL
+            r"MATCH\s*\(\s*(\w+)\s*:\s*(\w+)\s*(?:\{\s*id\s*:\s*\$(\w+)\s*\})?\s*\)", cypher, re.IGNORECASE | re.DOTALL
         )
         if not m:
-            m = re.match(
-                r'MATCH\s*\(\s*(\w+)\s*:\s*(\w+)\s*\)',
-                cypher, re.IGNORECASE | re.DOTALL
-            )
+            m = re.match(r"MATCH\s*\(\s*(\w+)\s*:\s*(\w+)\s*\)", cypher, re.IGNORECASE | re.DOTALL)
         if not m:
             logger.warning(f"未识别的 Cypher 查询: {cypher[:100]}...")
             return "SELECT 1", []
@@ -384,8 +373,7 @@ class SQLiteClient:
 
         # WHERE 子句
         where_m = re.search(
-            r'WHERE\s+(.+?)(?:\s+RETURN|\s+ORDER\s+BY|\s+LIMIT|\s*$)',
-            cypher, re.IGNORECASE | re.DOTALL
+            r"WHERE\s+(.+?)(?:\s+RETURN|\s+ORDER\s+BY|\s+LIMIT|\s*$)", cypher, re.IGNORECASE | re.DOTALL
         )
         if where_m:
             translated, extra_params = self._translate_where(where_m.group(1), params)
@@ -393,23 +381,17 @@ class SQLiteClient:
             where_parts.append(translated)
 
         # 检查是否有聚合函数
-        ret_m = re.search(
-            r'RETURN\s+(.*?)(?:\s+ORDER\s+BY|\s+LIMIT|\s*$)',
-            cypher, re.IGNORECASE | re.DOTALL
-        )
+        ret_m = re.search(r"RETURN\s+(.*?)(?:\s+ORDER\s+BY|\s+LIMIT|\s*$)", cypher, re.IGNORECASE | re.DOTALL)
         has_aggregates = False
         ret_expr_str = ""
         if ret_m:
             ret_expr_str = ret_m.group(1).strip()
-            has_aggregates = bool(re.search(
-                r'\b(collect|avg|count|sum|min|max|percentileDisc)\s*\(',
-                ret_expr_str, re.IGNORECASE
-            ))
+            has_aggregates = bool(
+                re.search(r"\b(collect|avg|count|sum|min|max|percentileDisc)\s*\(", ret_expr_str, re.IGNORECASE)
+            )
 
         if has_aggregates:
-            return self._build_aggregate_query(
-                table, label, ret_expr_str, where_parts, sql_params, cypher
-            )
+            return self._build_aggregate_query(table, label, ret_expr_str, where_parts, sql_params, cypher)
 
         # 非聚合查询
         sql = f"SELECT * FROM {table}"
@@ -417,13 +399,13 @@ class SQLiteClient:
             sql += " WHERE " + " AND ".join(where_parts)
 
         # ORDER BY
-        order_m = re.search(r'ORDER\s+BY\s+(.+?)(?:\s+LIMIT|\s*$)', cypher, re.IGNORECASE | re.DOTALL)
+        order_m = re.search(r"ORDER\s+BY\s+(.+?)(?:\s+LIMIT|\s*$)", cypher, re.IGNORECASE | re.DOTALL)
         if order_m:
-            order_by = re.sub(r'\w+\.', '', order_m.group(1).strip())
+            order_by = re.sub(r"\w+\.", "", order_m.group(1).strip())
             sql += f" ORDER BY {order_by}"
 
         # LIMIT
-        limit_m = re.search(r'LIMIT\s+(\$?\w+)', cypher, re.IGNORECASE)
+        limit_m = re.search(r"LIMIT\s+(\$?\w+)", cypher, re.IGNORECASE)
         if limit_m:
             limit_val = limit_m.group(1)
             if limit_val.startswith("$"):
@@ -437,8 +419,7 @@ class SQLiteClient:
         return sql, sql_params
 
     def _build_aggregate_query(
-        self, table: str, label: str, ret_expr_str: str,
-        where_parts: list, where_params: list, cypher: str
+        self, table: str, label: str, ret_expr_str: str, where_parts: list, where_params: list, cypher: str
     ) -> tuple[str, list]:
         # 解析 RETURN 表达式（用逗号分割，考虑嵌套括号）
         exprs = self._split_return_exprs(ret_expr_str)
@@ -451,60 +432,54 @@ class SQLiteClient:
                 continue
 
             # 单独变量 (RETURN c) → SELECT *
-            if re.match(r'^\w{1,3}$', expr) and expr.lower() != "as":
+            if re.match(r"^\w{1,3}$", expr) and expr.lower() != "as":
                 continue
 
             # collect(DISTINCT { ... }) AS alias
-            m = re.match(
-                r'collect\s*\(\s*DISTINCT\s*\{(.+)\}\s*\)(?:\s+AS\s+(\w+))?',
-                expr, re.IGNORECASE | re.DOTALL
-            )
+            m = re.match(r"collect\s*\(\s*DISTINCT\s*\{(.+)\}\s*\)(?:\s+AS\s+(\w+))?", expr, re.IGNORECASE | re.DOTALL)
             if m:
                 alias = m.group(2) or "collection"
                 select_parts.append(f"'[]' AS {alias}")
                 continue
 
             # avg(c.xxx) AS alias
-            m = re.match(r'avg\s*\(\s*\w+\.(\w+)\s*\)(?:\s+AS\s+(\w+))?', expr, re.IGNORECASE)
+            m = re.match(r"avg\s*\(\s*\w+\.(\w+)\s*\)(?:\s+AS\s+(\w+))?", expr, re.IGNORECASE)
             if m:
                 alias = m.group(2) or f"avg_{m.group(1)}"
                 select_parts.append(f"avg({m.group(1)}) AS {alias}")
                 continue
 
             # count(DISTINCT x) AS alias
-            m = re.match(r'count\s*\(\s*DISTINCT\s+\w+\s*\)(?:\s+AS\s+(\w+))?', expr, re.IGNORECASE)
+            m = re.match(r"count\s*\(\s*DISTINCT\s+\w+\s*\)(?:\s+AS\s+(\w+))?", expr, re.IGNORECASE)
             if m:
                 alias = m.group(1) or "cnt"
                 select_parts.append(f"COUNT(*) AS {alias}")
                 continue
 
             # count(*) AS alias
-            m = re.match(r'count\s*\(\s*\*\s*\)(?:\s+AS\s+(\w+))?', expr, re.IGNORECASE)
+            m = re.match(r"count\s*\(\s*\*\s*\)(?:\s+AS\s+(\w+))?", expr, re.IGNORECASE)
             if m:
                 alias = m.group(1) or "cnt"
                 select_parts.append(f"COUNT(*) AS {alias}")
                 continue
 
             # percentileDisc(x, p) AS alias → avg 替代
-            m = re.match(
-                r'percentileDisc\s*\(\s*\w+\.(\w+)\s*,\s*[\d.]+\s*\)(?:\s+AS\s+(\w+))?',
-                expr, re.IGNORECASE
-            )
+            m = re.match(r"percentileDisc\s*\(\s*\w+\.(\w+)\s*,\s*[\d.]+\s*\)(?:\s+AS\s+(\w+))?", expr, re.IGNORECASE)
             if m:
                 alias = m.group(2) or m.group(1)
                 select_parts.append(f"avg({m.group(1)}) AS {alias}")
                 continue
 
             # avg((x + y) / 2) AS mean
-            m = re.match(r'avg\s*\(\s*\(([^)]+)\)\s*\)(?:\s+AS\s+(\w+))?', expr, re.IGNORECASE)
+            m = re.match(r"avg\s*\(\s*\(([^)]+)\)\s*\)(?:\s+AS\s+(\w+))?", expr, re.IGNORECASE)
             if m:
                 alias = m.group(2) or "mean"
-                inner = re.sub(r'\w+\.', '', m.group(1))
+                inner = re.sub(r"\w+\.", "", m.group(1))
                 select_parts.append(f"avg({inner}) AS {alias}")
                 continue
 
             # c.xxx AS alias
-            m = re.match(r'\w+\.(\w+)(?:\s+AS\s+(\w+))?', expr, re.IGNORECASE)
+            m = re.match(r"\w+\.(\w+)(?:\s+AS\s+(\w+))?", expr, re.IGNORECASE)
             if m:
                 alias = m.group(2) or m.group(1)
                 select_parts.append(f"{m.group(1)} AS {alias}")
@@ -517,10 +492,10 @@ class SQLiteClient:
         if not select_parts:
             return f"SELECT * FROM {table}{where_sql}", select_params
 
-        order_m = re.search(r'ORDER\s+BY\s+(.+?)(?:\s+LIMIT|\s*$)', cypher, re.IGNORECASE | re.DOTALL)
+        order_m = re.search(r"ORDER\s+BY\s+(.+?)(?:\s+LIMIT|\s*$)", cypher, re.IGNORECASE | re.DOTALL)
         order_sql = ""
         if order_m:
-            order_by = re.sub(r'\w+\.', '', order_m.group(1).strip())
+            order_by = re.sub(r"\w+\.", "", order_m.group(1).strip())
             order_sql = f" ORDER BY {order_by}"
 
         select_clause = ", ".join(select_parts)
@@ -533,19 +508,19 @@ class SQLiteClient:
         depth = 0
         current = []
         for ch in expr_str:
-            if ch in '({':
+            if ch in "({":
                 depth += 1
                 current.append(ch)
-            elif ch in ')}':
+            elif ch in ")}":
                 depth -= 1
                 current.append(ch)
-            elif ch == ',' and depth == 0:
-                exprs.append(''.join(current).strip())
+            elif ch == "," and depth == 0:
+                exprs.append("".join(current).strip())
                 current = []
             else:
                 current.append(ch)
         if current:
-            exprs.append(''.join(current).strip())
+            exprs.append("".join(current).strip())
         return exprs
 
     def close(self):
